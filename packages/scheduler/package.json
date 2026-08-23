@@ -40,7 +40,7 @@
     "@monotykamary/dsh-shell": "^0.1.0-rc.11",
     "@monotykamary/dsh-tools": "^0.1.0-rc.11",
     "@monotykamary/dsh-worktree": "^0.1.0-rc.11",
-    "@monotykamary/dsh-client-ui-deliverables": "^0.1.0-rc.11"
+    "@monotykamary/dsh-tool-session-mutations": "^0.1.0-rc.11"
   },
   "devDependencies": {
     "@monotykamary/cordis": "^4.3.2",
@@ -58,7 +58,7 @@
     "@monotykamary/dsh-shell": "^0.1.0-rc.11",
     "@monotykamary/dsh-tools": "^0.1.0-rc.11",
     "@monotykamary/dsh-worktree": "^0.1.0-rc.11",
-    "@monotykamary/dsh-client-ui-deliverables": "^0.1.0-rc.11"
+    "@monotykamary/dsh-tool-session-mutations": "^0.1.0-rc.11"
   },
   "repository": {
     "type": "git",

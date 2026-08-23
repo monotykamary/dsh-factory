@@ -36,6 +36,7 @@ overrides:
   '@monotykamary/dsh-shell': 'link:../deepseek-harness/packages/shell/shell'
   '@monotykamary/dsh-skill': 'link:../deepseek-harness/packages/skill/skill'
   '@monotykamary/dsh-tools': 'link:../deepseek-harness/packages/core/tools'
+  '@monotykamary/dsh-tool-session-mutations': 'link:../deepseek-harness/packages/session-query/tool-session-mutations'
   '@monotykamary/dsh-typert-generator': 'link:../deepseek-harness/packages/typert/generator'
   '@monotykamary/dsh-typert-protocol': 'link:../deepseek-harness/packages/typert/protocol'
   '@monotykamary/dsh-user-questions': 'link:../deepseek-harness/packages/interaction/user-questions'

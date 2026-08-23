@@ -34,6 +34,7 @@ overrides:
   '@monotykamary/dsh-shell': link:../deepseek-harness/packages/shell/shell
   '@monotykamary/dsh-skill': link:../deepseek-harness/packages/skill/skill
   '@monotykamary/dsh-tools': link:../deepseek-harness/packages/core/tools
+  '@monotykamary/dsh-tool-session-mutations': link:../deepseek-harness/packages/session-query/tool-session-mutations
   '@monotykamary/dsh-typert-generator': link:../deepseek-harness/packages/typert/generator
   '@monotykamary/dsh-typert-protocol': link:../deepseek-harness/packages/typert/protocol
   '@monotykamary/dsh-user-questions': link:../deepseek-harness/packages/interaction/user-questions
@@ -241,9 +242,6 @@ importers:
       '@monotykamary/dsh-attachment':
         specifier: link:../../../deepseek-harness/packages/attachment/attachment
         version: link:../../../deepseek-harness/packages/attachment/attachment
-      '@monotykamary/dsh-client-ui-deliverables':
-        specifier: link:../../../deepseek-harness/packages/client/ui-deliverables
-        version: link:../../../deepseek-harness/packages/client/ui-deliverables
       '@monotykamary/dsh-llm':
         specifier: link:../../../deepseek-harness/packages/llm/llm
         version: link:../../../deepseek-harness/packages/llm/llm
@@ -259,6 +257,9 @@ importers:
       '@monotykamary/dsh-tool-ask-user':
         specifier: link:../../../deepseek-harness/packages/interaction/tool-ask-user
         version: link:../../../deepseek-harness/packages/interaction/tool-ask-user
+      '@monotykamary/dsh-tool-session-mutations':
+        specifier: link:../../../deepseek-harness/packages/session-query/tool-session-mutations
+        version: link:../../../deepseek-harness/packages/session-query/tool-session-mutations
       '@monotykamary/dsh-tools':
         specifier: link:../../../deepseek-harness/packages/core/tools
         version: link:../../../deepseek-harness/packages/core/tools
