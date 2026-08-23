@@ -10,6 +10,7 @@ export default defineConfig({
     // make every linked primitive hook fail on a clean CI runner.
     dedupe: ['react', 'react-dom'],
     alias: {
+      '@monotykamary/dsh-client-ui-primitives': harness('packages/client/ui-primitives/src/index.ts'),
       '@monotykamary/dsh-client-ui-attachment/client': harness('packages/client/ui-attachment/src/client/index.ts'),
       '@monotykamary/dsh-client-ui-deliverables/client': harness('packages/client/ui-deliverables/src/client/ProducedFiles.tsx'),
     },
