@@ -1,35 +1,128 @@
-# dsh-factory
+<div align="center">
 
-Durable task dependency graphs and recurring Agent work scheduled onto serialized repository checkout lanes for DeepSeek Harness.
+# 🏭 dsh-factory
 
-Factory is a labeller and control plane over the ordinary DSH Session workflow. Human creation stays on New Session through one compact Task/Flow selector after Full access. Task is the default: it sends normally, then automatic Agent observation captures the live Session in its workspace's Emerging work. Task's nested Run later option instead consumes the blank composer into an idempotent draft without starting the Session. Flow consumes the composer to create a first node or place a parallel, sequential, or always-run finalizer node in an existing nonterminal flow. A consumed submission clears the shared draft/images and redirects to the exact task card, where the user can edit, schedule, or queue it. Optional title/description generation settles independently.
+**Durable task graphs and recurring Agent work for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)**
 
-The Factory application presents Emerging work first, followed by graph-ordered named flows, Linear-compatible priority/status controls, issue-style task cards, searchable dependencies, one-shot and recurring schedules, all-run Triage, generated metadata, and safe local Git worktrees. A running task's discussion is one chronological feed backed by its DSH Session: posted messages lead pending steering and queued prompts, Queue and Steer are explicit, and users can move, edit, or remove queued rows until the Agent claims them. Pasted images use the shared Session thumbnail gallery and fullscreen lightbox in drafts, pending prompts, posted messages, and Factory notes. Task detail and exact-run Triage also scan the owning checkout's `.artifacts` directory for images and videos, present them in the same 64px horizontally paged rail, and open one fullscreen carousel across the run's media so isolated parallel worktrees remain independently reviewable. Neutral Lucide relationship nodes and same-color branch rails become a blue running spinner, green completed check, or red abrupt-failure cross as work advances. Model skills can still create task/dependency graphs directly and group the relationship-complete set.
+_From one prompt to a dependency-aware production line — with isolated checkouts, live Sessions, and reviewable results._
 
-Recurring tasks remain **Scheduled** between occurrences and retain each success or failure as an unread Triage result; ordinary task runs and observed Sessions enter the same inbox when terminal. Recurring tasks never become task-level complete. Workspace settings own execution/title models, resettable title and description instructions, title-generation opt-out, checkout/base ref, and setup script. Scheduler-launched occurrences remain ordinary durable DSH Sessions in the main Session browser.
+[![checks](https://img.shields.io/github/actions/workflow/status/monotykamary/dsh-factory/check.yml?branch=main&style=for-the-badge&label=checks)](https://github.com/monotykamary/dsh-factory/actions/workflows/check.yml)
+[![npm](https://img.shields.io/npm/v/dsh-factory?style=for-the-badge&logo=npm)](https://www.npmjs.com/package/dsh-factory)
+[![DeepSeek Harness](https://img.shields.io/badge/DeepSeek-Harness-4D6BFE?style=for-the-badge)](https://github.com/deepseek-ai/deepseek-harness)
+[![TypeScript](https://img.shields.io/badge/TypeScript-6-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![license](https://img.shields.io/badge/license-MIT-f4c430?style=for-the-badge)](LICENSE)
+
+</div>
+
+---
+
+**dsh-factory** turns the ordinary DSH Session workflow into a durable local task factory. People can capture work from New Session, models can build dependency graphs directly, and a lease-elected scheduler runs eligible nodes through native DSH Agents without introducing a second Agent loop, tool registry, or conversation store.
+
+## Why Factory?
+
+| | Capability | What it unlocks |
+| :-: | --- | --- |
+| 🕸️ | **Dependency graphs** | Parallel branches, sequential chains, joins, and always-run finalizers in one named flow. |
+| 🏃 | **Native Agent runs** | Every assignment executes as an ordinary durable DSH Session with the selected model and preset. |
+| 🛤️ | **Safe checkout lanes** | Current, isolated, and predecessor-reuse lanes over managed Git worktrees with dirty-work and live-Session protection. |
+| ⏰ | **One-shot + recurring schedules** | Delayed starts and Croner-backed recurrence with lease-safe activation and non-overlapping occurrences. |
+| 💬 | **First-class discussion** | Posted prompts, steer messages, reorderable queued follow-ups, images, and Factory notes in one chronological feed. |
+| 🔎 | **Triage and artifacts** | Unread and failed run results, mutation receipts, plus images and videos discovered under each run's `.artifacts/` directory. |
+| ✨ | **White-glove intake** | A compact Task/Flow selector extends New Session instead of duplicating its Workspace, model, permission, attachment, and draft controls. |
+
+## How it fits
+
+```mermaid
+flowchart LR
+  Human[Human or model] --> Intake[New Session + Factory tools]
+  Intake --> Graph[(Task and flow graph)]
+  Graph --> Scheduler[Lease-elected scheduler]
+  Scheduler --> Lanes[Serialized checkout lanes]
+  Lanes --> Agents[DSH Agents]
+  Agents --> Sessions[(Durable Sessions)]
+  Sessions --> Triage[Triage + artifacts]
+  Sessions --> Graph
+```
+
+Factory is a control plane over DSH, not a replacement for it. Factory SQLite owns projects, tasks, flows, schedules, runs, and review state. DSH remains authoritative for Agent execution, model-visible messages, pending prompt order, tools, attachments, Sessions, and worktree safety.
+
+## The workflow
+
+1. **Capture** — send normally to create a live Session, choose **Run later** for a draft task, or place the prompt into a new or existing flow.
+2. **Compose** — add searchable dependencies, parallel branches, joins, finalizers, labels, priorities, schedules, and model overrides.
+3. **Run** — the scheduler claims ready work, resolves a safe checkout lane, starts a DSH Agent, and logs the assignment with dependency and mutation-ledger context.
+4. **Collaborate** — Queue and Steer post through the Agent inbox; pending rows stay editable and reorderable until claimed.
+5. **Finish** — `factory_finish` settles only after the Agent is idle and its Session log is flushed.
+6. **Review** — Triage preserves each terminal occurrence, including recurring runs, receipts, summaries, failures, and `.artifacts/` media.
+
+## Packages
+
+| Package | Responsibility |
+| --- | --- |
+| [`dsh-factory-protocol`](packages/protocol) | Host-independent task, flow, run, schedule, observation, and graph records. |
+| [`dsh-factory-store`](packages/store) | Persistence Service Definition. |
+| [`dsh-factory-store-sqlite`](packages/store-sqlite) | Transactional documents, presence, revisions, and scheduler leases. |
+| [`dsh-factory-domain`](packages/domain) | State transitions, metadata settlement, artifacts, and Typert Remote methods. |
+| [`dsh-factory-tools`](packages/tools) | Model graph tools, explicit completion, and the bundled Factory skill. |
+| [`dsh-factory-scheduler`](packages/scheduler) | Dependency, lane, cron, cleanup, and DSH Agent reconciliation. |
+| [`dsh-factory-client-ui`](packages/client-ui) | Work, task detail, Triage, New Session intake, and project settings. |
+| [`dsh-factory`](.) | Installable Cordis patch-layer bundle. |
 
 ## Install
 
-Published bundle:
+### Monotykamary DSH flavor
 
-```sh
-dsh plugin --profile web add dsh-factory
+Factory ships in the custom Web profile beside Fabric and Fovea:
+
+```bash
+npm install --global @monotykamary/dsh@latest
+dsh --profile web
 ```
 
-Local checkout:
+### Add to another compatible profile
 
-```sh
+```bash
+dsh plugin --profile web add dsh-factory@latest
+```
+
+Restart the selected profile after installation. Factory appears as an additive Sidebar application and stores its SQLite database under the DSH home.
+
+<details>
+<summary><strong>Install this checkout locally</strong></summary>
+
+```bash
+git clone https://github.com/monotykamary/dsh-factory.git
+cd dsh-factory
 pnpm install
 pnpm run check
 pnpm run install:local -- --profile web --skip-build
 ```
 
-Restart the selected profile after installation. Factory appears as an additive Sidebar application and stores SQLite under the DSH home.
+The installer links all eight workspace packages, validates the composed Factory rows, and never starts or restarts DSH.
 
-## Visual review
+</details>
 
-Store local desktop and mobile browser captures under `.artifacts/screenshots/`. These review artifacts are intentionally excluded from Git and the published package. Run `pnpm run test:e2e` against an assembled Factory web profile after browser-facing changes.
+## Safety model
 
-## Architecture
+A checkout is one serialized writer lane. Factory never force-removes a worktree, never deletes dirty work, and never releases a lane while shared presence reports a live Session. It refuses primary and unmanaged checkout removal. Publishing remains an explicit task, and cleanup cannot rewrite a flow outcome.
 
-[`docs/architecture.md`](docs/architecture.md) defines New Session intake, durable authority, direct flow composition, recurring scheduling and Triage, metadata settlement, checkout lanes, Agent execution, cleanup, and browser-state ownership.
+Recurring tasks return to **Scheduled** after every occurrence and retain each success or failure in Triage. Scheduler takeover recovers only scheduler-owned dispatches, so observation of an external Session cannot create a duplicate run.
+
+## Browser experience
+
+Work shows Emerging work first and then graph-ordered flows. Task detail combines properties, dependencies, schedule, model selection, run output, discussion, mutation receipts, and review media. Relationship rails move from neutral pending nodes to a blue running spinner, green completion check, or red abrupt-failure cross.
+
+Pasted images reuse the DSH attachment gallery and fullscreen lightbox. Task detail and exact-run Triage discover images and videos in the owning checkout's `.artifacts/` directory and open one keyboard-accessible carousel without copying media into Factory state.
+
+## Development
+
+Requirements: Node.js `^22.19.0 || >=24` and pnpm 11.
+
+```bash
+pnpm install
+pnpm run check
+```
+
+Browser-facing changes additionally run `pnpm run test:e2e` against an assembled Factory Web profile. Local captures belong under `.artifacts/screenshots/` and are excluded from Git and npm.
+
+See [`docs/architecture.md`](docs/architecture.md) for durable authority, intake, metadata, scheduling, execution, Triage, cleanup, and browser-state ownership.

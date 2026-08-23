@@ -17,7 +17,7 @@ const REQUIRED_ARTIFACTS = [
   'packages/domain/lib/typert.remote-client.js',
   'packages/tools/lib/index.js',
   'packages/scheduler/lib/index.js',
-  'packages/client-ui/lib/client.js',
+  'packages/client-ui/lib/client.cjs',
 ]
 
 try {

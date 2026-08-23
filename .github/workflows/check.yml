@@ -1,0 +1,43 @@
+name: check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  # Factory's local development overrides preserve one Cordis and DSH module
+  # identity by linking a sibling Harness checkout. Keep this pin on a commit
+  # that exposes the external orchestration and deliverables APIs Factory uses.
+  DSH_HARNESS_REF: f8b1daf8a18ef5ca2f412b2b29da6becb7c07e7b
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.20.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - name: Checkout DeepSeek Harness
+        run: |
+          git init --quiet ../deepseek-harness
+          git -C ../deepseek-harness remote add origin https://github.com/monotykamary/deepseek-harness.git
+          git -C ../deepseek-harness fetch --depth 1 --quiet origin "$DSH_HARNESS_REF"
+          git -C ../deepseek-harness checkout --quiet --detach FETCH_HEAD
+          git -C ../deepseek-harness log -1 --oneline
+      - name: Install Harness workspace
+        working-directory: ../deepseek-harness
+        run: pnpm install --frozen-lockfile
+      - name: Build Harness library faces
+        working-directory: ../deepseek-harness
+        run: pnpm run build:lib:host && pnpm run build:lib:client
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run check
