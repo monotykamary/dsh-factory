@@ -1,0 +1,33 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true, "rewriteRelativeImportExtensions": false, "types": ["node"],
+    "paths": {
+      "@monotykamary/dsh-typert-protocol": ["packages/domain/src/typert-protocol.d.ts"],
+      "dsh-factory-protocol": ["packages/protocol/src/index.ts"],
+      "dsh-factory-protocol/types": ["packages/protocol/src/types.ts"],
+      "dsh-factory-store": ["packages/store/src/index.ts"],
+      "dsh-factory-store-sqlite": ["packages/store-sqlite/src/index.ts"],
+      "dsh-factory-domain": ["packages/domain/src/index.ts"],
+      "dsh-factory-tools": ["packages/tools/src/index.ts"],
+      "dsh-factory-scheduler": ["packages/scheduler/src/index.ts"]
+    }
+  },
+  "include": [
+    "packages/protocol/src/**/*.ts",
+    "packages/store/src/**/*.ts",
+    "packages/store-sqlite/src/**/*.ts",
+    "packages/domain/src/**/*.ts",
+    "packages/tools/src/**/*.ts",
+    "packages/scheduler/src/**/*.ts",
+    "packages/*/tests/**/*.ts"
+  ],
+  "references": [
+    { "path": "./packages/protocol" },
+    { "path": "./packages/store" },
+    { "path": "./packages/store-sqlite" },
+    { "path": "./packages/domain" },
+    { "path": "./packages/tools" },
+    { "path": "./packages/scheduler" }
+  ]
+}

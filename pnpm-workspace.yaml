@@ -1,0 +1,42 @@
+packages:
+  - packages/*
+
+linkWorkspacePackages: true
+
+allowBuilds:
+  esbuild: true
+
+overrides:
+  '@monotykamary/cordis': 'link:../deepseek-harness/vendor/cordis'
+  '@monotykamary/schemastery': 'link:../deepseek-harness/vendor/schemastery'
+  '@monotykamary/dsh-agent': 'link:../deepseek-harness/packages/core/agent'
+  '@monotykamary/dsh-attachment': 'link:../deepseek-harness/packages/attachment/attachment'
+  '@monotykamary/dsh-agent-default-model': 'link:../deepseek-harness/packages/core/agent-default-model'
+  '@monotykamary/dsh-agent-loop': 'link:../deepseek-harness/packages/core/agent-loop'
+  '@monotykamary/dsh-agent-loop-testkit': 'link:../deepseek-harness/packages/test-support/agent-loop-testkit'
+  '@monotykamary/dsh-agent-presets': 'link:../deepseek-harness/packages/preset/agent-presets'
+  '@monotykamary/dsh-api-gateway': 'link:../deepseek-harness/packages/api/gateway'
+  '@monotykamary/dsh-brand': 'link:../deepseek-harness/packages/util/brand'
+  '@monotykamary/dsh-client-locale': 'link:../deepseek-harness/packages/client/locale'
+  '@monotykamary/dsh-client-runtime': 'link:../deepseek-harness/packages/client/runtime'
+  '@monotykamary/dsh-client-ui-attachment': 'link:../deepseek-harness/packages/client/ui-attachment'
+  '@monotykamary/dsh-client-ui-conversation': 'link:../deepseek-harness/packages/client/ui-conversation'
+  '@monotykamary/dsh-client-ui-deliverables': 'link:../deepseek-harness/packages/client/ui-deliverables'
+  '@monotykamary/dsh-client-ui-layout': 'link:../deepseek-harness/packages/client/ui-layout'
+  '@monotykamary/dsh-client-ui-primitives': 'link:../deepseek-harness/packages/client/ui-primitives'
+  '@monotykamary/dsh-client-ui-sidebar': 'link:../deepseek-harness/packages/client/ui-sidebar'
+  '@monotykamary/dsh-client-ui-slots': 'link:../deepseek-harness/packages/client/ui-slots'
+  '@monotykamary/dsh-home-paths': 'link:../deepseek-harness/packages/util/home-paths'
+  '@monotykamary/dsh-invariants': 'link:../deepseek-harness/packages/runtime-diagnostics/invariants'
+  '@monotykamary/dsh-llm': 'link:../deepseek-harness/packages/llm/llm'
+  '@monotykamary/dsh-session': 'link:../deepseek-harness/packages/core/session'
+  '@monotykamary/dsh-system-prompt': 'link:../deepseek-harness/packages/core/system-prompt'
+  '@monotykamary/dsh-session-persistence': 'link:../deepseek-harness/packages/session/session-persistence'
+  '@monotykamary/dsh-tool-ask-user': 'link:../deepseek-harness/packages/interaction/tool-ask-user'
+  '@monotykamary/dsh-shell': 'link:../deepseek-harness/packages/shell/shell'
+  '@monotykamary/dsh-skill': 'link:../deepseek-harness/packages/skill/skill'
+  '@monotykamary/dsh-tools': 'link:../deepseek-harness/packages/core/tools'
+  '@monotykamary/dsh-typert-generator': 'link:../deepseek-harness/packages/typert/generator'
+  '@monotykamary/dsh-typert-protocol': 'link:../deepseek-harness/packages/typert/protocol'
+  '@monotykamary/dsh-user-questions': 'link:../deepseek-harness/packages/interaction/user-questions'
+  '@monotykamary/dsh-worktree': 'link:../deepseek-harness/packages/workspace/worktree'

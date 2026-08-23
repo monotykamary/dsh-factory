@@ -1,0 +1,72 @@
+{
+  "name": "dsh-factory-scheduler",
+  "version": "0.1.0",
+  "description": "Leader-elected Factory scheduler and DSH Agent executor",
+  "type": "module",
+  "license": "MIT",
+  "exports": {
+    ".": {
+      "types": "./lib/types/index.d.ts",
+      "import": "./lib/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib/index.js",
+    "lib/types/**/*.d.ts",
+    "README.md",
+    "LICENSE"
+  ],
+  "sideEffects": true,
+  "dependencies": {
+    "dsh-factory-domain": "workspace:^",
+    "dsh-factory-protocol": "workspace:^",
+    "dsh-factory-tools": "workspace:^",
+    "@monotykamary/schemastery": "^3.17.1"
+  },
+  "peerDependencies": {
+    "@monotykamary/cordis": "^4.3.2",
+    "@monotykamary/dsh-attachment": "^0.1.0-rc.11",
+    "@monotykamary/dsh-agent": "^0.1.0-rc.11",
+    "@monotykamary/dsh-agent-loop": "^0.1.0-rc.11",
+    "@monotykamary/dsh-agent-loop-testkit": "^0.1.0-rc.11",
+    "@monotykamary/dsh-agent-default-model": "^0.1.0-rc.11",
+    "@monotykamary/dsh-agent-presets": "^0.1.0-rc.11",
+    "@monotykamary/dsh-llm": "^0.1.0-rc.11",
+    "@monotykamary/dsh-session": "^0.1.0-rc.11",
+    "@monotykamary/dsh-system-prompt": "^0.1.0-rc.11",
+    "@monotykamary/dsh-tool-ask-user": "^0.1.0-rc.11",
+    "@monotykamary/dsh-user-questions": "^0.1.0-rc.11",
+    "@monotykamary/dsh-shell": "^0.1.0-rc.11",
+    "@monotykamary/dsh-tools": "^0.1.0-rc.11",
+    "@monotykamary/dsh-worktree": "^0.1.0-rc.11",
+    "@monotykamary/dsh-client-ui-deliverables": "^0.1.0-rc.11"
+  },
+  "devDependencies": {
+    "@monotykamary/cordis": "^4.3.2",
+    "@monotykamary/dsh-attachment": "^0.1.0-rc.11",
+    "@monotykamary/dsh-agent": "^0.1.0-rc.11",
+    "@monotykamary/dsh-agent-loop": "^0.1.0-rc.11",
+    "@monotykamary/dsh-agent-loop-testkit": "^0.1.0-rc.11",
+    "@monotykamary/dsh-agent-default-model": "^0.1.0-rc.11",
+    "@monotykamary/dsh-agent-presets": "^0.1.0-rc.11",
+    "@monotykamary/dsh-llm": "^0.1.0-rc.11",
+    "@monotykamary/dsh-session": "^0.1.0-rc.11",
+    "@monotykamary/dsh-system-prompt": "^0.1.0-rc.11",
+    "@monotykamary/dsh-tool-ask-user": "^0.1.0-rc.11",
+    "@monotykamary/dsh-user-questions": "^0.1.0-rc.11",
+    "@monotykamary/dsh-shell": "^0.1.0-rc.11",
+    "@monotykamary/dsh-tools": "^0.1.0-rc.11",
+    "@monotykamary/dsh-worktree": "^0.1.0-rc.11",
+    "@monotykamary/dsh-client-ui-deliverables": "^0.1.0-rc.11"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/monotykamary/dsh-factory.git",
+    "directory": "packages/scheduler"
+  },
+  "scripts": {
+    "build": "tsc -b && tsdown",
+    "typecheck": "tsc -b --pretty false"
+  }
+}

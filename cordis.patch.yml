@@ -1,0 +1,44 @@
+# Factory adds a durable task graph and DSH Agent scheduler. It does not
+# replace the Agent loop, Session persistence, tool runtime, Worktree provider,
+# Shell provider, Skill registry, or browser frame supplied by the base profile.
+- insert:
+    - id: factory-store
+      name: 'dsh-factory-store-sqlite'
+      config:
+        path: !!js dshHomePath('factory/factory.sqlite')
+
+    - id: factory-domain
+      name: 'dsh-factory-domain'
+      config:
+        activityLimit: 500
+        presenceTtlMs: 15000
+        heartbeatMs: 3000
+        attachmentLimit: 8
+        attachmentBytes: 4000000
+        titleGenerationEnabled: true
+        metadataGenerationLimit: 500
+        titleMaxInputBytes: 16000
+        titleMaxOutputTokens: 160
+        titleTimeoutMs: 30000
+        titleMaxBytes: 160
+        descriptionMaxBytes: 800
+
+    - id: factory-tools
+      name: 'dsh-factory-tools'
+
+    - id: factory-scheduler
+      name: 'dsh-factory-scheduler'
+      config:
+        maxConcurrent: 3
+        maxAttempts: 3
+        tickMs: 1000
+        leaseTtlMs: 10000
+        setupTimeoutMs: 120000
+        cleanupPolicy: retain
+        sweepOlderThanMs: 604800000
+        sweepLimit: 8
+        maxDependencyMutations: 32
+        maxDependencyContextChars: 24000
+
+    - id: factory-ui
+      name: 'dsh-factory-client-ui'

@@ -1,0 +1,60 @@
+{
+  "name": "dsh-factory",
+  "version": "0.1.0",
+  "description": "Durable dependency-graph task factory for DeepSeek Harness",
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": "^22.19.0 || >=24.0.0"
+  },
+  "packageManager": "pnpm@11.20.0",
+  "files": [
+    "cordis.patch.yml",
+    "README.md",
+    "LICENSE",
+    "THIRD_PARTY_NOTICES.md",
+    "docs"
+  ],
+  "exports": {
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "dependencies": {
+    "dsh-factory-client-ui": "workspace:^",
+    "dsh-factory-domain": "workspace:^",
+    "dsh-factory-protocol": "workspace:^",
+    "dsh-factory-scheduler": "workspace:^",
+    "dsh-factory-store": "workspace:^",
+    "dsh-factory-store-sqlite": "workspace:^",
+    "dsh-factory-tools": "workspace:^"
+  },
+  "scripts": {
+    "clean": "node scripts/clean.mjs",
+    "typecheck": "pnpm run build && tsc -b tsconfig.host.json tsconfig.client.json --pretty false && tsc -p tsconfig.e2e.json --pretty false",
+    "build": "pnpm run clean && pnpm --filter dsh-factory-protocol run build && pnpm --filter dsh-factory-store run build && pnpm --filter dsh-factory-store-sqlite run build && pnpm --filter dsh-factory-tools run build && pnpm --filter dsh-factory-domain run build && pnpm --filter dsh-factory-scheduler run build && pnpm --filter dsh-factory-client-ui run build",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "install:local": "node scripts/install-local.mjs",
+    "check": "pnpm run typecheck && pnpm run test"
+  },
+  "devDependencies": {
+    "@monotykamary/dsh-typert-generator": "^0.1.0-rc.11",
+    "@playwright/test": "^1.58.2",
+    "@testing-library/react": "^16.3.2",
+    "@types/node": "^22.20.0",
+    "jsdom": "29.1.1",
+    "lightningcss": "^1.32.0",
+    "tsdown": "^0.22.2",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.8"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/monotykamary/dsh-factory.git"
+  }
+}

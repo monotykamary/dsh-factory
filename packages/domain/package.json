@@ -1,0 +1,71 @@
+{
+  "name": "dsh-factory-domain",
+  "version": "0.1.0",
+  "description": "Factory graph state transitions, Agent presence, and Typert Remote service",
+  "type": "module",
+  "license": "MIT",
+  "exports": {
+    ".": {
+      "types": "./lib/types/index.d.ts",
+      "import": "./lib/index.js"
+    },
+    "./typert": {
+      "types": "./lib/typert.host.d.ts",
+      "default": "./lib/typert.host.js"
+    },
+    "./remote": {
+      "types": "./lib/typert.remote-client.d.ts",
+      "default": "./lib/typert.remote-client.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib/index.js",
+    "lib/types/**/*.d.ts",
+    "lib/typert.host.js",
+    "lib/typert.host.d.ts",
+    "lib/typert.remote-client.js",
+    "lib/typert.remote-client.d.ts",
+    "README.md",
+    "LICENSE",
+    "THIRD_PARTY_NOTICES.md"
+  ],
+  "sideEffects": true,
+  "dependencies": {
+    "@monotykamary/schemastery": "^3.17.1",
+    "croner": "^9.1.0",
+    "dsh-factory-protocol": "workspace:^",
+    "dsh-factory-store": "workspace:^",
+    "zod": "^4.3.6"
+  },
+  "peerDependencies": {
+    "@monotykamary/cordis": "^4.3.2",
+    "@monotykamary/dsh-agent": "^0.1.0-rc.11",
+    "@monotykamary/dsh-agent-default-model": "^0.1.0-rc.11",
+    "@monotykamary/dsh-llm": "^0.1.0-rc.11",
+    "@monotykamary/dsh-session-title": "^0.1.0-rc.11",
+    "@monotykamary/dsh-typert-protocol": "^0.1.0-rc.11",
+    "@monotykamary/dsh-worktree": "^0.1.0-rc.11"
+  },
+  "devDependencies": {
+    "@monotykamary/cordis": "^4.3.2",
+    "@monotykamary/dsh-agent": "^0.1.0-rc.11",
+    "@monotykamary/dsh-agent-default-model": "^0.1.0-rc.11",
+    "@monotykamary/dsh-llm": "^0.1.0-rc.11",
+    "@monotykamary/dsh-session-title": "^0.1.0-rc.11",
+    "@monotykamary/dsh-typert-generator": "^0.1.0-rc.11",
+    "@monotykamary/dsh-typert-protocol": "^0.1.0-rc.11",
+    "@monotykamary/dsh-worktree": "^0.1.0-rc.11",
+    "@types/node": "^22.20.0",
+    "dsh-factory-store-sqlite": "workspace:^"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/monotykamary/dsh-factory.git",
+    "directory": "packages/domain"
+  },
+  "scripts": {
+    "build": "tsc -b && tsdown",
+    "typecheck": "tsc -b --pretty false"
+  }
+}

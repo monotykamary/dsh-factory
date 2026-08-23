@@ -1,0 +1,6 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": { "rootDir": "src", "outDir": "lib/types", "composite": true, "declaration": true, "declarationMap": false, "emitDeclarationOnly": true, "types": ["node"] },
+  "include": ["src/**/*.ts"],
+  "references": [{ "path": "../protocol" }, { "path": "../store" }]
+}

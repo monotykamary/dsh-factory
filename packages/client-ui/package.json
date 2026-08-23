@@ -1,0 +1,106 @@
+{
+  "name": "dsh-factory-client-ui",
+  "version": "0.1.0",
+  "description": "Factory Work, all-run Triage, task card, and workspace settings UI",
+  "type": "module",
+  "license": "MIT",
+  "exports": {
+    ".": {
+      "types": "./lib/types/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./client": {
+      "types": "./lib/types/client/index.d.ts",
+      "default": "./lib/client.js"
+    },
+    "./invariant": {
+      "types": "./lib/types/invariant.d.ts",
+      "default": "./lib/invariant.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib/index.js",
+    "lib/invariant.js",
+    "lib/client.js",
+    "lib/client.js.map",
+    "lib/types/**/*.d.ts",
+    "README.md",
+    "LICENSE",
+    "THIRD_PARTY_NOTICES.md"
+  ],
+  "sideEffects": true,
+  "dsh": {
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@monotykamary/dsh-client-runtime",
+        "@monotykamary/dsh-client-locale",
+        "@monotykamary/dsh-api-gateway",
+        "@monotykamary/dsh-client-ui-layout",
+        "@monotykamary/dsh-client-ui-conversation",
+        "@monotykamary/dsh-client-ui-sidebar",
+        "@monotykamary/dsh-client-ui-attachment",
+        "@monotykamary/dsh-client-ui-deliverables",
+        "@monotykamary/dsh-api-remotes",
+        "@monotykamary/dsh-client-connection"
+      ],
+      "external": [
+        "@monotykamary/dsh-client-ui-attachment/client",
+        "@monotykamary/dsh-client-ui-conversation/client",
+        "@monotykamary/dsh-client-ui-deliverables/client"
+      ]
+    }
+  },
+  "dependencies": {
+    "dsh-factory-domain": "workspace:^",
+    "dsh-factory-protocol": "workspace:^",
+    "react": "^18.2.0",
+    "zod": "^4.3.6"
+  },
+  "peerDependencies": {
+    "@monotykamary/cordis": "^4.3.2",
+    "@monotykamary/dsh-api-gateway": "^0.1.0-rc.11",
+    "@monotykamary/dsh-client-locale": "^0.1.0-rc.11",
+    "@monotykamary/dsh-client-runtime": "^0.1.0-rc.11",
+    "@monotykamary/dsh-client-ui-layout": "^0.1.0-rc.11",
+    "@monotykamary/dsh-client-ui-conversation": "^0.1.0-rc.11",
+    "@monotykamary/dsh-client-ui-primitives": "^0.1.0-rc.11",
+    "@monotykamary/dsh-client-ui-sidebar": "^0.1.0-rc.11",
+    "@monotykamary/dsh-client-ui-slots": "^0.1.0-rc.11",
+    "@monotykamary/dsh-typert-protocol": "^0.1.0-rc.11",
+    "@monotykamary/dsh-client-ui-attachment": "^0.1.0-rc.11",
+    "@monotykamary/dsh-client-ui-deliverables": "^0.1.0-rc.11",
+    "@monotykamary/dsh-api-remotes": "^0.1.0-rc.11",
+    "@monotykamary/dsh-client-connection": "^0.1.0-rc.11"
+  },
+  "devDependencies": {
+    "@monotykamary/cordis": "^4.3.2",
+    "@monotykamary/dsh-api-gateway": "^0.1.0-rc.11",
+    "@monotykamary/dsh-client-locale": "^0.1.0-rc.11",
+    "@monotykamary/dsh-client-runtime": "^0.1.0-rc.11",
+    "@monotykamary/dsh-client-ui-layout": "^0.1.0-rc.11",
+    "@monotykamary/dsh-client-ui-conversation": "^0.1.0-rc.11",
+    "@monotykamary/dsh-client-ui-primitives": "^0.1.0-rc.11",
+    "@monotykamary/dsh-client-ui-sidebar": "^0.1.0-rc.11",
+    "@monotykamary/dsh-client-ui-slots": "^0.1.0-rc.11",
+    "@monotykamary/dsh-typert-protocol": "^0.1.0-rc.11",
+    "@types/react": "~18.3.1",
+    "@types/react-dom": "~18.3.0",
+    "react-dom": "^18.2.0",
+    "@monotykamary/dsh-client-ui-attachment": "^0.1.0-rc.11",
+    "@monotykamary/dsh-client-ui-deliverables": "^0.1.0-rc.11",
+    "@monotykamary/dsh-api-remotes": "^0.1.0-rc.11",
+    "@monotykamary/dsh-client-connection": "^0.1.0-rc.11"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/monotykamary/dsh-factory.git",
+    "directory": "packages/client-ui"
+  },
+  "scripts": {
+    "build": "tsc -b && tsdown",
+    "watch": "tsc -b && tsdown --watch",
+    "typecheck": "tsc -b --pretty false"
+  }
+}

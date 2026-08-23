@@ -1,0 +1,7 @@
+import { defineConfig } from 'tsdown'
+import { typertPlugin } from '@monotykamary/dsh-typert-generator/tsdown'
+
+export default defineConfig({
+  entry: ['src/index.ts'], outDir: 'lib', format: ['esm'], platform: 'node', target: 'es2024',
+  fixedExtension: false, dts: false, clean: false, plugins: [typertPlugin({ mode: 'package', faces: ['host'] })],
+})
