@@ -1,6 +1,6 @@
 {
   "name": "dsh-factory-store",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Factory persistence Service Definition",
   "type": "module", "license": "MIT",
   "exports": { ".": { "types": "./lib/types/index.d.ts", "default": "./lib/index.js" }, "./typert": { "types": "./lib/typert.host.d.ts", "default": "./lib/typert.host.js" }, "./package.json": "./package.json" },
