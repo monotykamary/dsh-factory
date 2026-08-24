@@ -258,7 +258,7 @@ describe('FactoryScheduler', () => {
     expect(completed.document.tasks[0]?.output?.summary).toBe('Inspected the APIs and verified the findings.')
     expect(adapter.requests).toHaveLength(3)
     expect(adapter.requests[0]?.tools?.some(tool => tool.name === 'factory_finish')).toBe(false)
-    expect(adapter.requests[0]?.system).not.toContain(FactoryTools.FACTORY_FINISH_REMINDER)
+    expect(adapter.requests[0]?.system ?? '').not.toContain(FactoryTools.FACTORY_FINISH_REMINDER)
     expect(adapter.requests[1]?.tools?.some(tool => tool.name === 'factory_finish')).toBe(true)
     expect(JSON.stringify(adapter.requests[1]?.messages)).toContain(FactoryTools.FACTORY_FINISH_REMINDER)
     const reminders = handle.agent.session.events.filter(event =>
