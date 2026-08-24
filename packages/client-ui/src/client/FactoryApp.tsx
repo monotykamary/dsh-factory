@@ -274,7 +274,7 @@ export function FactoryApp({
   if (task !== undefined) return (
     <>
       {factory.error === undefined ? null : <div className={css.errorBanner} role="alert">{factory.error}</div>}
-      <FactoryTaskCard task={task} snapshot={snapshot} modelChoices={models.choices} artifactApi={api} artifactRunId={artifactRunId} artifactRefreshToken={snapshot.generatedAt} session={taskSession} sessionId={taskSessionId} t={t} onBack={() => { navigation.openWork() }} onOpenSession={listedTaskSessionId === undefined ? undefined : () => { openSurface('conversation'); sessionRuntime.open(listedTaskSessionId) }} onOpenSettings={(path) => { navigation.openWork(); setSettingsPath(path); setTab('settings') }} onUpdate={update} onComment={comment} onConnect={connect} onAttach={attach} onAction={action} />
+      <FactoryTaskCard task={task} snapshot={snapshot} modelChoices={models.choices} artifactApi={api} artifactRunId={artifactRunId} artifactRefreshToken={String(snapshot.revision)} session={taskSession} sessionId={taskSessionId} t={t} onBack={() => { navigation.openWork() }} onOpenSession={listedTaskSessionId === undefined ? undefined : () => { openSurface('conversation'); sessionRuntime.open(listedTaskSessionId) }} onOpenSettings={(path) => { navigation.openWork(); setSettingsPath(path); setTab('settings') }} onUpdate={update} onComment={comment} onConnect={connect} onAttach={attach} onAction={action} />
     </>
   )
 

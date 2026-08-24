@@ -232,14 +232,20 @@ function DiscussionImages({ images, sources, loadSession, labels }: {
     const source = sources?.get(String(attachment.attachmentId))
     return source === undefined ? loadSession(attachment) : Promise.resolve(source)
   }, [loadSession, sources])
+  // Reload only when the attachment set changes; polling rebuilds the images
+  // array every render with identical content and must not blank the rail.
+  const latest = useRef({ images, load })
+  useEffect(() => { latest.current = { images, load } })
+  const imagesKey = images.map(({ attachment }) => `${attachment.mediaType}:${attachment.name ?? ''}:${String(attachment.bytes)}`).join('\n')
   useEffect(() => {
+    const current = latest.current
     let live = true
     setItems([])
-    setLoading(images.length > 0)
+    setLoading(current.images.length > 0)
     setFailed(false)
-    void Promise.allSettled(images.map(async ({ attachment }, index) => ({
+    void Promise.allSettled(current.images.map(async ({ attachment }, index) => ({
       id: `${String(attachment.attachmentId)}:${String(index)}`,
-      previewUrl: await load(attachment),
+      previewUrl: await current.load(attachment),
       alt: attachment.name ?? labels.image,
     } satisfies FactoryPreviewMedia))).then((results) => {
       if (!live) return
@@ -248,7 +254,7 @@ function DiscussionImages({ images, sources, loadSession, labels }: {
       setLoading(false)
     })
     return () => { live = false }
-  }, [attempt, images, labels.image, load])
+  }, [attempt, imagesKey, labels.image])
 
   if (images.length === 0) return null
   return (

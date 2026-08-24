@@ -261,4 +261,28 @@ describe('Factory task prompt comments', () => {
     })
     expect(live.prompt).not.toHaveBeenCalled()
   })
+
+  it('keeps rendered comment images across polling re-renders', async () => {
+    const withImage = (): FactoryTask => {
+      const value = task()
+      value.comments.push({
+        id: FactoryCommentId('comment:image'), author: 'user', body: 'See this screenshot',
+        attachments: [{
+          id: FactoryAttachmentId('attachment:screenshot'), name: 'shot.png', mediaType: 'image/png',
+          dataUrl: 'data:image/png;base64,cG5n', createdAt: '2026-08-23T00:00:01.000Z',
+        }],
+        createdAt: '2026-08-23T00:00:01.000Z',
+      })
+      return value
+    }
+    const onComment = vi.fn(() => Promise.resolve())
+    const view = render(<FactoryTaskDiscussion task={withImage()} revision={9} activeRun={false} t={t} onComment={onComment} />)
+
+    const rail = await screen.findByRole('group', { name: t('image.group') })
+    expect(rail.querySelectorAll('img')).toHaveLength(1)
+
+    view.rerender(<FactoryTaskDiscussion task={withImage()} revision={9} activeRun={false} t={t} onComment={onComment} />)
+    expect(rail.querySelectorAll('img')).toHaveLength(1)
+    expect(screen.queryByText(t('image.loading'))).toBeNull()
+  })
 })

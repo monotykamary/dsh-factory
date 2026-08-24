@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Bot, Button, GitBranch, Settings } from '@monotykamary/dsh-client-ui-primitives'
 import type { WorkspaceView } from '@monotykamary/dsh-client-runtime/client'
 import {
@@ -27,6 +27,13 @@ export function FactorySettings({ snapshot, workspaces, choices, modelError, ini
   const [path, setPath] = useState(initialPath ?? rows[0]?.path ?? '')
   const project = snapshot.document.projects.find(candidate => candidate.mainPath === path)
   const effectiveModel = project?.settings.model ?? snapshot.defaultModel
+  const storedTitleModel = project?.settings.titleModel ?? effectiveModel
+  const storedAutoTitle = project?.settings.autoTitle ?? true
+  const storedTitlePrompt = project?.settings.titlePrompt ?? DEFAULT_FACTORY_TITLE_PROMPT
+  const storedDescriptionPrompt = project?.settings.descriptionPrompt ?? DEFAULT_FACTORY_DESCRIPTION_PROMPT
+  const storedLane = project?.settings.lane.mode ?? 'isolated'
+  const storedBaseRef = project?.settings.lane.baseRef ?? ''
+  const storedSetupCommand = project?.settings.setupCommand ?? ''
   const [model, setModel] = useState(effectiveModel)
   const [titleModel, setTitleModel] = useState(project?.settings.titleModel ?? effectiveModel)
   const [autoTitle, setAutoTitle] = useState(project?.settings.autoTitle ?? true)
@@ -38,23 +45,33 @@ export function FactorySettings({ snapshot, workspaces, choices, modelError, ini
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string>()
 
+  // Apply a caller-targeted workspace once per new value so polling cannot
+  // slam the workspace choice back while the draft is being edited.
+  const appliedInitialPath = useRef<string>()
   useEffect(() => {
-    if (initialPath !== undefined && rows.some(row => row.path === initialPath)) setPath(initialPath)
+    if (initialPath === undefined || appliedInitialPath.current === initialPath) return
+    if (!rows.some(row => row.path === initialPath)) return
+    appliedInitialPath.current = initialPath
+    setPath(initialPath)
   }, [initialPath, rows])
 
+  // Reseed the draft only when the persisted settings content actually
+  // changes; a polling refresh returns an equal seed and leaves edits intact.
+  const seed = JSON.stringify([
+    effectiveModel, storedTitleModel, storedAutoTitle, storedTitlePrompt,
+    storedDescriptionPrompt, storedLane, storedBaseRef, storedSetupCommand,
+  ])
   useEffect(() => {
-    const selected = snapshot.document.projects.find(candidate => candidate.mainPath === path)
-    const executionModel = selected?.settings.model ?? snapshot.defaultModel
-    setModel(executionModel)
-    setTitleModel(selected?.settings.titleModel ?? executionModel)
-    setAutoTitle(selected?.settings.autoTitle ?? true)
-    setTitlePrompt(selected?.settings.titlePrompt ?? DEFAULT_FACTORY_TITLE_PROMPT)
-    setDescriptionPrompt(selected?.settings.descriptionPrompt ?? DEFAULT_FACTORY_DESCRIPTION_PROMPT)
-    setLane(selected?.settings.lane.mode ?? 'isolated')
-    setBaseRef(selected?.settings.lane.baseRef ?? '')
-    setSetupCommand(selected?.settings.setupCommand ?? '')
+    setModel(effectiveModel)
+    setTitleModel(storedTitleModel)
+    setAutoTitle(storedAutoTitle)
+    setTitlePrompt(storedTitlePrompt)
+    setDescriptionPrompt(storedDescriptionPrompt)
+    setLane(storedLane)
+    setBaseRef(storedBaseRef)
+    setSetupCommand(storedSetupCommand)
     setError(undefined)
-  }, [path, snapshot])
+  }, [path, seed])
 
   const save = async (): Promise<void> => {
     if (path === '' || model === '' || titleModel === '') return

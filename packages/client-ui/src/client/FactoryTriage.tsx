@@ -86,7 +86,7 @@ export function FactoryTriage({ snapshot, api, t, onOpenTask, onReview }: Props)
               <div><dt>Schedule</dt><dd>{selected.schedule === undefined ? selected.origin === 'observed' ? 'Observed Session' : 'One time' : factoryRecurringLabel(selected.schedule)}</dd></div>
             </dl>
             <section><div className={css.sectionTitle}><Clock3 size={15} /><h2>Run result</h2></div><MarkdownText text={[selected.output?.summary ?? selected.failure ?? '', selected.output?.details].filter(Boolean).join('\n\n')} /></section>
-            <FactoryArtifactMedia api={api} taskId={selectedTask.id} runId={selected.id} refreshToken={snapshot.generatedAt} surface="triage" />
+            <FactoryArtifactMedia api={api} taskId={selectedTask.id} runId={selected.id} refreshToken={String(snapshot.revision)} surface="triage" />
             {selected.output?.artifacts.length ? <section><h4>Artifacts</h4><div className={css.artifactList}>{selected.output.artifacts.map(value => <code key={value}>{value}</code>)}</div></section> : null}
             {selected.output?.mutations.length ? <ProducedFilesCard changes={runChanges(selected)} labels={{ changed: count => t(count === 1 ? 'changes.changedOne' : 'changes.changed', { count: String(count) }), viewFileDiff: path => t('changes.viewFileDiff', { name: path }), expandFolders: t('changes.expandFolders'), collapseFolders: t('changes.collapseFolders'), viewDiff: t('changes.viewDiff') }} /> : null}
           </aside>

@@ -69,4 +69,18 @@ describe('Factory artifact media', () => {
     expect(remote.artifactMediaData).toHaveBeenCalledTimes(1)
     expect(await screen.findByTestId('factory-artifact-media')).toBeTruthy()
   })
+
+  it('does not reload while the refresh token is unchanged', async () => {
+    const remote = api()
+    const view = render(<FactoryArtifactMedia api={remote.face} taskId={taskId} runId={runId} refreshToken="7" surface="task" />)
+
+    const rail = await screen.findByRole('group', { name: 'Artifact media' })
+    expect(remote.artifactMedia).toHaveBeenCalledTimes(1)
+
+    view.rerender(<FactoryArtifactMedia api={remote.face} taskId={taskId} runId={runId} refreshToken="7" surface="task" />)
+    view.rerender(<FactoryArtifactMedia api={remote.face} taskId={taskId} runId={runId} refreshToken="7" surface="task" />)
+    expect(remote.artifactMedia).toHaveBeenCalledTimes(1)
+    expect(remote.artifactMediaData).toHaveBeenCalledTimes(1)
+    expect(rail.querySelectorAll('img')).toHaveLength(1)
+  })
 })
