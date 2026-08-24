@@ -52,7 +52,7 @@ Factory is a control plane over DSH, not a replacement for it. Factory SQLite ow
 2. **Compose** — add searchable dependencies, parallel branches, joins, finalizers, labels, priorities, schedules, and model overrides.
 3. **Run** — the scheduler claims ready work, resolves a safe checkout lane, starts a DSH Agent, and logs the assignment with dependency and mutation-ledger context.
 4. **Collaborate** — Queue and Steer post through the Agent inbox; pending rows stay editable and reorderable until claimed.
-5. **Finish** — `factory_finish` settles only after the Agent is idle and its Session log is flushed.
+5. **Finish** — a missing report receives one logged next-step reminder; `factory_finish` is followed by one concise user-facing result and settles only after the Session log is flushed.
 6. **Review** — Triage preserves each terminal occurrence, including recurring runs, receipts, summaries, failures, and `.artifacts/` media.
 
 ## Packages

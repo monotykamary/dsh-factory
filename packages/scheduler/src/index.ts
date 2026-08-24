@@ -5,15 +5,15 @@ import type {} from '@monotykamary/dsh-agent-default-model'
 import type {} from '@monotykamary/dsh-agent-presets'
 import type { Context } from '@monotykamary/cordis'
 import { createUserMessage, type ContentBlock } from '@monotykamary/dsh-llm'
-import { SessionId, type SessionEvent } from '@monotykamary/dsh-session'
+import { SessionId } from '@monotykamary/dsh-session'
 import * as AskUserQuestionTool from '@monotykamary/dsh-tool-ask-user'
-import { boundedText, mutationLedger, renderMutation } from '@monotykamary/dsh-tool-session-mutations/ledger'
+import { boundedText, renderMutation } from '@monotykamary/dsh-tool-session-mutations/ledger'
 import type {} from '@monotykamary/dsh-shell'
 import type {} from '@monotykamary/dsh-worktree'
 import z from '@monotykamary/schemastery'
-import { installFactoryCompletionTool, type FactoryCompletionChannel } from 'dsh-factory-tools'
+import { factoryFileMutations, installFactoryCompletionTool, type FactoryCompletionChannel } from 'dsh-factory-tools'
 import {
-  type FactoryDocument, type FactoryFileMutation, type FactoryProject, type FactoryRunId, type FactoryTask, type FactoryTaskId,
+  type FactoryDocument, type FactoryProject, type FactoryRunId, type FactoryTask, type FactoryTaskId,
 } from 'dsh-factory-protocol'
 import type { FactoryTaskClaim } from 'dsh-factory-domain'
 import type {} from 'dsh-factory-domain'
@@ -71,23 +71,7 @@ declare module '@monotykamary/dsh-llm' {
   }
 }
 
-/**
- * Normalize a Session's receipt-aware mutations for durable Factory output.
- * @param events - Complete settled Session events.
- * @returns Commit-ordered mutations detached from the Session log.
- */
-export function factoryFileMutations(events: readonly SessionEvent[]): FactoryFileMutation[] {
-  return mutationLedger(events).map(mutation => ({
-    commitOrder: mutation.commitOrder,
-    path: mutation.path,
-    operation: mutation.operation,
-    additions: mutation.additions,
-    deletions: mutation.deletions,
-    beforeSha256: mutation.beforeSha256,
-    afterSha256: mutation.afterSha256,
-    diffs: mutation.diffs.map(diff => ({ path: mutation.path, oldText: diff.oldText, newText: diff.newText ?? '' })),
-  }))
-}
+export { factoryFileMutations } from 'dsh-factory-tools'
 
 /**
  * Render direct predecessor results and mutation receipts for the next task's logged assignment.
@@ -286,13 +270,13 @@ class FactoryScheduler {
         return
       }
       if (active.lastError !== undefined) {
-        await this.ctx.parallel('session/flush', handle.agent.session)
+        await this.ctx.sessions.flush(handle.agent.session)
         await this.ctx.factory.failRun(claim.run.id, active.lastError)
         return
       }
       const report = channel.consume()
       if (report !== undefined) {
-        await this.ctx.parallel('session/flush', handle.agent.session)
+        await this.ctx.sessions.flush(handle.agent.session)
         await this.ctx.factory.finishRun(claim.run.id, { ...report, mutations: factoryFileMutations(handle.agent.session.events) })
         if (report.outcome !== 'blocked') return
       } else {

@@ -2,27 +2,25 @@ import type { Context } from '@monotykamary/cordis'
 import { defineTool } from '@monotykamary/dsh-tools'
 import {
   FactoryFlowId, FactoryTaskId,
-  type FactoryAutomationSpec, type FactoryFinishReport, type FactoryLaneSpec, type FactorySnapshot,
+  type FactoryAutomationSpec, type FactoryLaneSpec, type FactorySnapshot,
 } from 'dsh-factory-protocol'
 import type {} from '@monotykamary/dsh-skill'
 import type {} from 'dsh-factory-domain'
+import { installObservedCompletionCoordinator } from './completion.ts'
+
+export {
+  FACTORY_FINISH_REMINDER, factoryFileMutations, installFactoryCompletionTool,
+  type FactoryCompletionChannel,
+} from './completion.ts'
 
 /** Cordis plugin name. */
 export const name = 'factory-tools'
-/** Existing model tool, skill, and Factory services receive contributions. */
-export const inject = ['tools', 'skills', 'factory']
+/** Existing model tool, skill, Factory, and Session services receive contributions. */
+export const inject = ['tools', 'skills', 'factory', 'sessions']
 
 const textOutput = {
   schema: { type: 'string' as const },
   render: (_args: unknown, value: string) => [{ type: 'text' as const, text: value }],
-}
-
-/** Per-run handoff between the model-visible completion tool and scheduler settlement. */
-export interface FactoryCompletionChannel {
-  /** Read and clear the first report submitted since the previous consume. */
-  consume(): FactoryFinishReport | undefined
-  /** Whether a report is waiting for the current turn to settle. */
-  pending(): boolean
 }
 
 function automationSpec(
@@ -82,61 +80,17 @@ function managementProjection(snapshot: FactorySnapshot): object {
   }
 }
 
-/** Register `factory_finish` in one Agent scope and return its report channel. */
-export function installFactoryCompletionTool(ctx: Context): FactoryCompletionChannel {
-  const tools = ctx.get('tools')
-  if (tools === undefined) throw new Error('factory_finish requires the DSH ToolRuntime')
-  let report: FactoryFinishReport | undefined
-  tools.register(defineTool({
-    name: 'factory_finish',
-    description: 'Report the assigned Factory task outcome exactly once after verification and after every required human answer has been received. Never emit this tool in the same model response as ask_user_question. The scheduler commits it only after this turn reaches idle.',
-    parameters: {
-      outcome: { type: 'string', required: true, enum: ['succeeded', 'failed', 'blocked'], description: 'succeeded after verification, failed for a terminal defect, or blocked only when a direct ask_user_question cannot resolve the required intervention.' },
-      summary: { type: 'string', required: true, description: 'Concise result or blocker summary.' },
-      details: { type: 'string', description: 'Supporting details, failures, or next action.' },
-      artifacts: { type: 'array', items: { type: 'string' }, description: 'Paths, URLs, or identifiers produced by the task.' },
-    },
-    output: textOutput,
-    execute(args, exec) {
-      const location = exec.location
-      const sharesQuestionStep = exec.agent?.session.events.some(event =>
-        (location !== undefined
-          && event.type === 'assistant/message'
-          && event.data.turn === location.turn
-          && event.data.step === location.step
-          && event.data.message.content.some(block => block.type === 'tool-call' && block.name === 'ask_user_question'))
-        || (event.type === 'tool/code-dispatch-start'
-          && event.data.rootCallId === exec.rootCallId
-          && event.data.name === 'ask_user_question')) === true
-      if (sharesQuestionStep) {
-        throw new Error('factory_finish must be called in a later model step after ask_user_question returns; wait for and use the human answer first')
-      }
-      if (report !== undefined) throw new Error('factory_finish already has a report pending for this turn')
-      report = {
-        outcome: args.outcome, summary: args.summary,
-        ...(args.details === undefined ? {} : { details: args.details }),
-        ...(args.artifacts === undefined ? {} : { artifacts: args.artifacts }),
-      }
-      return Promise.resolve(`Factory ${args.outcome} report accepted; finish this turn without starting new work.`)
-    },
-    presentCall: args => ({ card: 'generic', title: `Report Factory task ${args.outcome}`, kind: 'edit', rawInput: args.summary }),
-  }))
-  return {
-    consume() { const value = report; report = undefined; return value },
-    pending() { return report !== undefined },
-  }
-}
-
 const FACTORY_SKILL = `# Factory operating guide
 
 Factory is a durable dependency graph, not a replacement for your current Session. Use factory_list before changing work you did not create; its revision, flow membership, task fields, recurring run history, and live Session ids support subsequent mutations. Ordinary tasks remain drafts unless enqueue is explicitly true. Their model, checkout, setup, title-generation policy, and metadata prompts inherit from workspace settings. Tasks become runnable only after all dependency tasks succeed. Recurring tasks remain Scheduled between occurrences and each terminal run appears unread in Triage. Checkout lanes serialize writers: current uses the project's main checkout, isolated creates a managed worktree, and reuse continues in a predecessor's checkout.
 
 Use factory_update_project to set workspace models, metadata prompts, checkout, and setup policy. Use factory_create_task for durable standalone work instead of leaving an untracked TODO; omit title and description to generate them from the prompt. Build a sequential or parallel flow explicitly: create each task with dependency_ids, then call factory_create_flow with the relationship-complete task ids and a clear title. Use factory_start_flow for a grouped draft's atomic launch, factory_update_task to replace mutable fields or the complete dependency list, factory_attach_session to assign one observed Session, factory_adopt_sessions to sink live Sessions, factory_task to run now, pause, cancel, or retry, and factory_comment to add context. Hard deletion is intentionally unavailable: cancel work to preserve its audit history.
 
-For recurring work, pass automation recurring and a five-field cron_expression to factory_create_task or factory_update_task. The task runs at local host time, returns to Scheduled after success or failure, and retains each result for Triage. When your Session was launched for a Factory run, call ask_user_question if a human answer or decision is required before the work is honestly complete. Its pending result keeps the assigned node nonterminal, so do not call factory_finish until the human answers; then use the answer in a later model step, continue, verify, and report exactly once. Use outcome blocked only when a direct question cannot resolve the intervention. Do not claim success from intent alone. Publishing and cleanup belong in explicit graph tasks and must never be smuggled into an implementation completion report.`
+For recurring work, pass automation recurring and a five-field cron_expression to factory_create_task or factory_update_task. The task runs at local host time, returns to Scheduled after success or failure, and retains each result for Triage. When your Session owns a launched or adopted Factory run, call ask_user_question if a human answer or decision is required before the work is honestly complete. Its pending result keeps the assigned node nonterminal, so do not call factory_finish until the human answers; then use the answer in a later model step, continue, verify, and report exactly once. Use outcome blocked only when a direct question cannot resolve the intervention. Do not claim success from intent alone. Publishing and cleanup belong in explicit graph tasks and must never be smuggled into an implementation completion report.`
 
 /** Register global Factory management tools and the bundled operating skill. */
 export function apply(ctx: Context): void {
+  installObservedCompletionCoordinator(ctx)
   ctx.skills.register({
     name: 'factory', description: 'Operate durable task graphs, grouped flows, checkout lanes, dependencies, and explicit run completion.',
     whenToUse: 'Use for durable follow-up work, grouped or parallel task graphs, or an assigned Factory run.', source: 'bundled', provider: 'dsh-factory', content: FACTORY_SKILL,

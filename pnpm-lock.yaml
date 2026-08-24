@@ -332,15 +332,24 @@ importers:
       '@monotykamary/cordis':
         specifier: link:../../../deepseek-harness/vendor/cordis
         version: link:../../../deepseek-harness/vendor/cordis
+      '@monotykamary/dsh-agent':
+        specifier: link:../../../deepseek-harness/packages/core/agent
+        version: link:../../../deepseek-harness/packages/core/agent
       '@monotykamary/dsh-llm':
         specifier: link:../../../deepseek-harness/packages/llm/llm
         version: link:../../../deepseek-harness/packages/llm/llm
+      '@monotykamary/dsh-session':
+        specifier: link:../../../deepseek-harness/packages/core/session
+        version: link:../../../deepseek-harness/packages/core/session
       '@monotykamary/dsh-skill':
         specifier: link:../../../deepseek-harness/packages/skill/skill
         version: link:../../../deepseek-harness/packages/skill/skill
       '@monotykamary/dsh-system-prompt':
         specifier: link:../../../deepseek-harness/packages/core/system-prompt
         version: link:../../../deepseek-harness/packages/core/system-prompt
+      '@monotykamary/dsh-tool-session-mutations':
+        specifier: link:../../../deepseek-harness/packages/session-query/tool-session-mutations
+        version: link:../../../deepseek-harness/packages/session-query/tool-session-mutations
       '@monotykamary/dsh-tools':
         specifier: link:../../../deepseek-harness/packages/core/tools
         version: link:../../../deepseek-harness/packages/core/tools

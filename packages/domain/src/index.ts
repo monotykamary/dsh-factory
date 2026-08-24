@@ -852,7 +852,7 @@ export class FactoryDomain extends TypertRemoteService {
     })
   }
 
-  /** Commit an explicit model completion report after the Agent reaches idle. */
+  /** Commit an explicit model completion report at the owning Agent's completion boundary. */
   finishRun(runId: FactoryRunId, report: FactoryRunSettlement): Promise<FactoryStoreRead> {
     if (report.outcome === 'blocked') return this.markRunWaiting(runId, report.summary)
     const outcome: 'succeeded' | 'failed' = report.outcome
@@ -933,6 +933,25 @@ export class FactoryDomain extends TypertRemoteService {
       if (recovered === 0) return FACTORY_STORE_NO_CHANGE
       deriveFlows(document, now)
     }, { processId: this.processId, now })
+  }
+
+  /**
+   * Resolve this process's active observed run after a fresh Agent-presence publication.
+   * @param sessionId - live DSH Session that may have been adopted into Emerging work.
+   * @returns the owned active observed run, or undefined when Factory owes it no completion.
+   */
+  async activeObservedRun(sessionId: string): Promise<FactoryRun | undefined> {
+    await this.schedulePresence()
+    await this.publishing
+    const stored = await this.ctx.factoryStore.read()
+    const run = stored.document.runs.toReversed().find(candidate =>
+      candidate.origin === 'observed'
+      && candidate.processId === this.processId
+      && candidate.sessionId === sessionId
+      && ['dispatching', 'running', 'waiting'].includes(candidate.status))
+    if (run === undefined) return undefined
+    const task = stored.document.tasks.find(candidate => candidate.id === run.taskId)
+    return task?.activeRunId === run.id ? structuredClone(run) : undefined
   }
 
   /** Return current state for scheduler cancellation reconciliation. */

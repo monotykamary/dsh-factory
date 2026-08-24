@@ -1,9 +1,10 @@
+import type { Agent } from '@monotykamary/dsh-agent'
 import { Context } from '@monotykamary/cordis'
 import { CallId } from '@monotykamary/dsh-llm'
 import SystemPrompt from '@monotykamary/dsh-system-prompt'
 import ToolRuntime from '@monotykamary/dsh-tools'
-import { afterEach, describe, expect, it } from 'vitest'
-import { installFactoryCompletionTool } from '../src/index.ts'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { FACTORY_FINISH_REMINDER, installFactoryCompletionTool } from '../src/index.ts'
 
 let ctx: Context | undefined
 
@@ -41,6 +42,46 @@ describe('factory_finish', () => {
     })
     expect(channel.consume()).toEqual({ outcome: 'blocked', summary: 'Need credentials' })
     expect(ctx.tools.get('factory_finish')?.presentCall?.({ outcome: 'blocked', summary: 'Need credentials' })).toMatchObject({ card: 'generic', kind: 'edit' })
+  })
+
+  it('injects once at a normal stop and suppresses max-token, reported, and disposed turns', async () => {
+    ctx = new Context()
+    new SystemPrompt(ctx, { includeHarnessIdentity: false, includeRuntimeContext: false, persona: '' })
+    new ToolRuntime(ctx, { mode: 'native' })
+    const channel = installFactoryCompletionTool(ctx)
+    const events: Array<Record<string, unknown>> = [{
+      type: 'assistant/chunk',
+      data: { turn: 1, chunk: { type: 'finish', reason: { kind: 'max-tokens' } } },
+    }]
+    const inject = vi.fn()
+    const agent = { session: { events }, inject } as unknown as Agent
+
+    expect(channel.remindAtStop(agent, 1)).toBe(false)
+    events.splice(0, events.length, {
+      type: 'assistant/chunk',
+      data: { turn: 2, chunk: { type: 'finish', reason: { kind: 'stop' } } },
+    })
+    expect(channel.remindAtStop(agent, 2)).toBe(true)
+    expect(channel.remindAtStop(agent, 2)).toBe(false)
+    expect(inject).toHaveBeenCalledOnce()
+    expect(inject.mock.calls[0]?.[0]).toMatchObject({
+      content: [{ type: 'text', text: FACTORY_FINISH_REMINDER }],
+      source: { kind: 'plugin', plugin: 'dsh-factory', form: 'notice', summary: 'Factory completion' },
+    })
+
+    await ctx.tools.execute({
+      callId: CallId('factory-finish-reminded'), name: 'factory_finish',
+      signal: new AbortController().signal, agent, location: { turn: 3, step: 1 },
+      arguments: { outcome: 'succeeded', summary: 'Verified after reminder' },
+    })
+    expect(channel.peek()).toMatchObject({ outcome: 'succeeded', summary: 'Verified after reminder' })
+    expect(channel.remindAtStop(agent, 3)).toBe(false)
+    expect(channel.consume()).toMatchObject({ outcome: 'succeeded' })
+    expect(channel.remindAtStop(agent, 3)).toBe(false)
+
+    channel.dispose()
+    expect(ctx.tools.get('factory_finish')).toBeUndefined()
+    expect(channel.remindAtStop(agent, 4)).toBe(false)
   })
 
   it('rejects completion from the same native step or run_code root as a human question', async () => {

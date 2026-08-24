@@ -107,6 +107,7 @@ async function setup(): Promise<{ context: Context; factory: FakeFactory }> {
   new SystemPrompt(ctx, { includeHarnessIdentity: false, includeRuntimeContext: false, persona: '' })
   new ToolRuntime(ctx, { mode: 'native' })
   new SkillRegistry(ctx, {})
+  ctx.provide('sessions', { flush: () => Promise.resolve(false) } as never)
   const factory = new FakeFactory(ctx)
   await ctx.plugin(FactoryTools)
   return { context: ctx, factory }

@@ -5,16 +5,17 @@ import AgentLoop from '@monotykamary/dsh-agent-loop'
 import { mountAgentLoopTestDependencies } from '@monotykamary/dsh-agent-loop-testkit'
 import AttachmentStore, { type ImageAttachmentLimits, type ImageAttachmentRef, type SaveImageAttachment, type StoredImageAttachment } from '@monotykamary/dsh-attachment'
 import { Context, Service } from '@monotykamary/cordis'
-import { CallId, LlmAdapter, type GenerateOptions, type LlmResolvedModelInfo, type StreamChunk } from '@monotykamary/dsh-llm'
+import { CallId, createUserMessage, LlmAdapter, type GenerateOptions, type LlmResolvedModelInfo, type StreamChunk } from '@monotykamary/dsh-llm'
 import ShellExecutor, { type ShellExecRequest, type ShellExecSpec, type ShellProcess, type ShellRunResult } from '@monotykamary/dsh-shell'
 import WorktreeRegistry, { type WorktreeProvider } from '@monotykamary/dsh-worktree'
-import type { SessionEvent } from '@monotykamary/dsh-session'
+import { SessionId, type SessionEvent } from '@monotykamary/dsh-session'
 import UserQuestionService, { type AskUserQuestionAnswer, type AskUserQuestionRequest } from '@monotykamary/dsh-user-questions'
 import { afterEach, describe, expect, it } from 'vitest'
 import {
   emptyFactoryDocument, FactoryFlowId, FactoryProjectId, FactoryTaskId, type FactoryTask,
 } from 'dsh-factory-protocol'
 import { FactoryDomain } from 'dsh-factory-domain'
+import * as FactoryTools from 'dsh-factory-tools'
 import { SqliteFactoryStore } from 'dsh-factory-store-sqlite'
 import * as SchedulerPlugin from '../src/index.ts'
 
@@ -163,6 +164,10 @@ async function schedulerHarness(projectPath: string, adapter: ScriptedAdapter, m
   worktrees.registerProvider(provider)
   await context.plugin(SqliteFactoryStore, { path: join(root, 'factory.sqlite') })
   await context.plugin(FactoryDomain, { heartbeatMs: 250, presenceTtlMs: 1_000 })
+  if (context.get('skills') === undefined) {
+    context.provide('skills', { register: () => () => {} } as never)
+  }
+  FactoryTools.apply(context)
   await context.plugin(SchedulerPlugin, {
     maxConcurrent, maxAttempts: 2, tickMs: 100, leaseTtlMs: 1_000, setupTimeoutMs: 1_000,
     cleanupPolicy: 'retain', sweepOlderThanMs: 60_000, sweepLimit: 1,
@@ -223,6 +228,58 @@ describe('FactoryScheduler', () => {
     expect(assignment).toBeDefined()
     expect(JSON.stringify(assignment?.data)).toContain('## Dependency handoff')
     expect(capturedSession?.events.some(event => event.type === 'tool/result')).toBe(true)
+  })
+
+  it('reminds an observed Agent once, settles its report, and leaves later conversation alone', async () => {
+    root = await mkdtemp(join(tmpdir(), 'dsh-factory-observed-completion-'))
+    const projectPath = join(root, 'repo')
+    await mkdir(projectPath)
+    const adapter = new ScriptedAdapter([
+      textResponse('Analysis and verification are complete.'),
+      finishCall('Inspected the APIs and verified the findings.', 'observed-finish'),
+      textResponse('Inspected the APIs and verified the findings.'),
+      textResponse('Happy to discuss the result further.'),
+    ])
+    const { context, domain } = await schedulerHarness(projectPath, adapter)
+    const handle = await context.agents.create({
+      sessionId: SessionId('observed-completion'),
+      meta: { cwd: projectPath },
+      agentOptions: { provider: 'mock', model: 'mock-model' },
+    })
+
+    handle.agent.followup(createUserMessage({
+      content: [{ type: 'text', text: 'Inspect the APIs and report the result.' }],
+      source: { kind: 'user' },
+    }))
+    await handle.agent.whenIdle()
+    await waitFor(async () => (await domain.readStore()).document.runs[0]?.status === 'succeeded')
+
+    const completed = await domain.readStore()
+    expect(completed.document.tasks[0]?.output?.summary).toBe('Inspected the APIs and verified the findings.')
+    expect(adapter.requests).toHaveLength(3)
+    expect(adapter.requests[0]?.tools?.some(tool => tool.name === 'factory_finish')).toBe(false)
+    expect(adapter.requests[0]?.system).not.toContain(FactoryTools.FACTORY_FINISH_REMINDER)
+    expect(adapter.requests[1]?.tools?.some(tool => tool.name === 'factory_finish')).toBe(true)
+    expect(JSON.stringify(adapter.requests[1]?.messages)).toContain(FactoryTools.FACTORY_FINISH_REMINDER)
+    const reminders = handle.agent.session.events.filter(event =>
+      event.type === 'user/message'
+      && event.data.source.kind === 'plugin'
+      && event.data.source.plugin === 'dsh-factory')
+    expect(reminders).toHaveLength(1)
+    expect(JSON.stringify(reminders[0]?.data)).toContain(FactoryTools.FACTORY_FINISH_REMINDER)
+
+    handle.agent.followup(createUserMessage({
+      content: [{ type: 'text', text: 'Thanks. Explain one part conversationally.' }],
+      source: { kind: 'user' },
+    }))
+    await handle.agent.whenIdle()
+    expect(adapter.requests).toHaveLength(4)
+    expect(adapter.requests[3]?.tools?.some(tool => tool.name === 'factory_finish')).toBe(false)
+    expect(handle.agent.session.events.filter(event =>
+      event.type === 'user/message'
+      && event.data.source.kind === 'plugin'
+      && event.data.source.plugin === 'dsh-factory')).toHaveLength(1)
+    await handle.dispose()
   })
 
   it('keeps dependent work queued until a pending human question is answered', async () => {
