@@ -85,6 +85,17 @@
   flex: none;
 }
 
+/* Host compact drawer mode (ui-layout AppFrame): a transparent 32px panel
+   toggle sits fixed at left 12px below the host's own 768px frame breakpoint;
+   pad the header rows to its right edge plus a 10px gap — the same
+   compensation the host conversation header applies to its title row. The
+   host state, not a local width breakpoint, owns this padding so the two can
+   never drift out of sync. */
+:global([data-sidebar-drawer]) .topbar,
+:global([data-sidebar-drawer]) .cardHeader {
+  padding-left: 54px;
+}
+
 .titleBlock,
 .titleBlock > div:last-child,
 .cardActions,
@@ -2605,7 +2616,7 @@
     min-height: 64px;
     align-items: center;
     flex-direction: row;
-    padding: 12px 14px 12px 54px;
+    padding: 12px 14px;
   }
 
   .topbar .titleBlock {
@@ -2640,7 +2651,7 @@
   .cardHeader {
     align-items: flex-start;
     flex-direction: column;
-    padding: 12px 14px 12px 54px;
+    padding: 12px 14px;
   }
 
   .cardBreadcrumb,
