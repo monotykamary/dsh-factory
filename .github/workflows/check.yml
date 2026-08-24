@@ -12,7 +12,7 @@ env:
   # Factory's local development overrides preserve one Cordis and DSH module
   # identity by linking a sibling Harness checkout. Keep this pin on a commit
   # that exposes the external orchestration and deliverables APIs Factory uses.
-  DSH_HARNESS_REF: a5f7bcad8e3afde917caa77b50c1420e6a641eea
+  DSH_HARNESS_REF: 6fbdc58a1ff33c01d3f24328eeb650c76645c87a
 
 jobs:
   check:
