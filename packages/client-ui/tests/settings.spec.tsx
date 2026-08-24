@@ -78,6 +78,16 @@ describe('Factory settings under polling refreshes', () => {
     expect(screen.getByRole('button', { name: 'Default checkout' }).textContent).toContain('Current checkout')
   })
 
+  it('groups advanced metadata fields on one spaced content track', () => {
+    render(element(snapshot(1)))
+    fireEvent.click(screen.getByText('Advanced metadata prompts'))
+
+    const title = screen.getByLabelText('Task title instruction').closest('label')
+    const description = screen.getByLabelText('Task description instruction').closest('label')
+    expect(title?.parentElement).toBe(description?.parentElement)
+    expect(title?.parentElement?.children).toHaveLength(4)
+  })
+
   it('reseeds only when persisted settings content changes', () => {
     const view = render(element(snapshot(1)))
     expect(screen.getByRole('button', { name: 'Workspace task model' }).textContent).toContain('Writer · Mock')

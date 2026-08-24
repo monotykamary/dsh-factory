@@ -523,7 +523,9 @@ function DiscussionSurface({ task, revision, session, activeRun, sessionSnapshot
             <div><strong>{t('comment.questionTitle')}</strong><span>{t('comment.questionHint')}</span></div>
           </div>
           <div className={css.humanQuestionList} role="list">
-            {pendingQuestion.payload.questions.map((question: { id: string; question: string }) => <div role="listitem" key={question.id}>{question.question}</div>)}
+            {pendingQuestion.payload.questions.map((question: { id: string; question: string }) => (
+              <div role="listitem" key={question.id}><MarkdownText text={question.question} /></div>
+            ))}
           </div>
           <Button size="sm" variant="primary" disabled={onOpenSession === undefined} onClick={onOpenSession}>{t('comment.answerQuestion')}</Button>
         </div>

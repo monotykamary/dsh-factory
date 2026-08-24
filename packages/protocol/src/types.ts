@@ -18,6 +18,8 @@ export type FactoryArtifactMediaId = Branded<'FactoryArtifactMediaId'>
 export type FactoryProcessId = Branded<'FactoryProcessId'>
 /** Opaque identity for one logged Factory metadata-generation request. */
 export type FactoryMetadataGenerationId = Branded<'FactoryMetadataGenerationId'>
+/** Opaque identity for one New Session composer submission. */
+export type FactoryIntakeId = Branded<'FactoryIntakeId'>
 
 /** Durable task lifecycle. */
 export type FactoryTaskStatus = 'draft' | 'scheduled' | 'queued' | 'dispatching' | 'running' | 'waiting' | 'paused' | 'succeeded' | 'failed' | 'cancelled'
@@ -192,6 +194,8 @@ export interface FactoryTask {
   flowId?: FactoryFlowId
   /** Blank Session whose composer created this task without sending a prompt. */
   intakeSessionId?: string
+  /** Composer submission identity used to make transport retries idempotent. */
+  intakeId?: FactoryIntakeId
   title: string
   description: string
   prompt: string
@@ -350,6 +354,7 @@ export type FactoryFlowIntakePlacement = 'parallel' | 'sequential' | 'finalizer'
 /** Create draft Factory work from the current blank DSH Session composer without prompting it. */
 export interface FactorySessionIntakeRequest extends FactoryMutationRequest {
   sessionId: string
+  intakeId: FactoryIntakeId
   prompt: string
   destination: 'task' | 'new-flow' | 'flow'
   /** Required only for an existing-flow destination. */
@@ -472,3 +477,5 @@ export const FactoryArtifactMediaId = (value: string): FactoryArtifactMediaId =>
 export const FactoryProcessId = (value: string): FactoryProcessId => value as FactoryProcessId
 /** Generate a branded metadata-generation identity. */
 export const FactoryMetadataGenerationId = (value: string): FactoryMetadataGenerationId => value as FactoryMetadataGenerationId
+/** Generate a branded New Session intake identity. */
+export const FactoryIntakeId = (value: string): FactoryIntakeId => value as FactoryIntakeId

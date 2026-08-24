@@ -212,6 +212,7 @@ describe('Factory task prompt comments', () => {
       payload: { questions: [
         { id: 'release', header: 'Release decision', question: 'Should the next dependency publish this build?' },
         { id: 'target', question: 'Which environment should receive it?' },
+        { id: 'policy', question: '# Release policy\n\n- Keep the canary reversible\n- Record the decision' },
       ] },
     } as never]
     const live = session(value)
@@ -223,6 +224,9 @@ describe('Factory task prompt comments', () => {
     expect(screen.getByText('This task and its dependent work stay paused until you respond.')).toBeTruthy()
     expect(screen.getByText('Should the next dependency publish this build?')).toBeTruthy()
     expect(screen.getByText('Which environment should receive it?')).toBeTruthy()
+    expect(screen.getByRole('heading', { level: 1, name: 'Release policy' })).toBeTruthy()
+    const questionList = within(screen.getByTestId('factory-human-question')).getAllByRole('list')[0]
+    expect(questionList?.children).toHaveLength(3)
     expect(screen.queryByPlaceholderText('Add a prompt or steer the running agent…')).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: 'Answer in Session' }))
     expect(onOpenSession).toHaveBeenCalledOnce()

@@ -22,7 +22,7 @@ async function dismissFirstRun(page: Page): Promise<void> {
   }
 }
 
-test('Factory reuses New Session intake and presents Emerging work, rail states, Triage, and settings', async ({ page }) => {
+test('Factory creates independent New Session work and presents Emerging work, rail states, Triage, and settings', async ({ page }) => {
   test.skip(process.env.DSH_FACTORY_E2E_URL === undefined, 'set DSH_FACTORY_E2E_URL to an assembled Factory web profile')
   const browserErrors: string[] = []
   page.on('console', message => { if (message.type() === 'error') browserErrors.push(message.text()) })
@@ -96,6 +96,9 @@ test('Factory reuses New Session intake and presents Emerging work, rail states,
   const titlePrompt = settings.getByLabel('Task title instruction')
   const descriptionPrompt = settings.getByLabel('Task description instruction')
   await expect(titlePrompt).toBeVisible()
+  const [titlePromptBox, descriptionPromptBox] = await Promise.all([titlePrompt.boundingBox(), descriptionPrompt.boundingBox()])
+  expect(titlePromptBox).not.toBeNull(); expect(descriptionPromptBox).not.toBeNull()
+  expect((descriptionPromptBox?.y ?? 0) - ((titlePromptBox?.y ?? 0) + (titlePromptBox?.height ?? 0))).toBeGreaterThanOrEqual(24)
   await titlePrompt.fill('Custom title prompt')
   await descriptionPrompt.fill('Custom description prompt')
   await settings.getByRole('button', { name: 'Reset prompts' }).click()
@@ -140,6 +143,7 @@ test('Factory reuses New Session intake and presents Emerging work, rail states,
   await page.getByRole('button', { name: 'Send' }).click()
   await expect(page.getByTestId('factory-task-card')).toBeVisible()
   const taskCard = page.getByTestId('factory-task-card')
+  const firstTaskIdentifier = await taskCard.locator('header strong').last().textContent()
   const promptSection = taskCard.getByRole('heading', { name: 'Agent prompt' }).locator('../..')
   await expect(promptSection.getByText(intakePrompt, { exact: true })).toBeVisible()
   const comments = taskCard.getByTestId('factory-task-comments')
@@ -172,9 +176,23 @@ test('Factory reuses New Session intake and presents Emerging work, rail states,
   await taskCard.getByRole('button', { name: 'Save' }).click()
   await expect(taskCard.getByText(label, { exact: true })).toHaveCount(0)
   await page.getByRole('button', { name: 'New Session' }).last().click()
+  const composer = page.locator('[data-composer-card] textarea')
+  await expect(composer).toHaveValue('')
+  const secondIntent = page.getByRole('button', { name: /New work intent, current/ })
+  await secondIntent.click()
+  await page.getByRole('menuitem', { name: /^Task/ }).click()
+  await page.getByRole('menuitem', { name: /^Run later/ }).click()
+  await composer.fill(`Independent queued task · ${runToken}.`)
+  await page.getByRole('button', { name: 'Send' }).click()
+  const secondTaskCard = page.getByTestId('factory-task-card')
+  await expect(secondTaskCard).toBeVisible()
+  const secondTaskIdentifier = await secondTaskCard.locator('header strong').last().textContent()
+  expect(secondTaskIdentifier).not.toBe(firstTaskIdentifier)
+
+  await page.getByRole('button', { name: 'New Session' }).last().click()
+  await expect(composer).toHaveValue('')
   const nextIntent = page.getByRole('button', { name: /New work intent, current/ })
   await expect(nextIntent).toHaveAccessibleName(/current Task/)
-
   await nextIntent.click()
   await page.getByRole('menuitem', { name: /^Flow/ }).click()
   await expect(page.getByRole('menuitem', { name: /^New flow/ })).toBeVisible()
@@ -207,7 +225,14 @@ test('Factory uses progressive mobile disclosure without horizontal overflow', a
 
   const app = page.getByTestId('factory-app')
   await expect(app).toBeVisible()
-  await expect(app.getByRole('heading', { name: 'Factory' }).locator('..').locator('svg')).toHaveCount(0)
+  const drawerToggle = page.getByRole('button', { name: 'Open sidebar' })
+  const factoryHeading = app.getByRole('heading', { name: 'Factory' })
+  const [drawerBox, headingBox] = await Promise.all([drawerToggle.boundingBox(), factoryHeading.boundingBox()])
+  expect(drawerBox).not.toBeNull(); expect(headingBox).not.toBeNull()
+  const drawerCenter = (drawerBox?.y ?? 0) + (drawerBox?.height ?? 0) / 2
+  const headingCenter = (headingBox?.y ?? 0) + (headingBox?.height ?? 0) / 2
+  expect(Math.abs(drawerCenter - headingCenter)).toBeLessThanOrEqual(2)
+  await expect(factoryHeading.locator('..').locator('svg')).toHaveCount(0)
   const groups = app.locator('[data-flow-kind]')
   if (await groups.count()) await expect(groups.first()).toHaveAttribute('data-flow-kind', 'inbox')
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)

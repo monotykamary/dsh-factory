@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import type { TranslateNS } from '@monotykamary/dsh-client-ui-slots'
 import {
-  FactoryAttachmentId, FactoryProjectId, FactoryTaskId, emptyFactoryDocument,
+  FactoryAttachmentId, FactoryProcessId, FactoryProjectId, FactoryRunId, FactoryTaskId, emptyFactoryDocument,
   type FactorySnapshot, type FactoryTask,
 } from 'dsh-factory-protocol'
 import { FactoryTaskCard } from '../src/client/FactoryTaskCard.tsx'
@@ -39,12 +39,24 @@ function fixture(): { snapshot: FactorySnapshot; task: FactoryTask } {
   }
 }
 
-function renderCard(onOpenSession?: () => void, configure?: (task: FactoryTask) => void) {
+function renderCard(
+  onOpenSession?: () => void,
+  configure?: (task: FactoryTask, snapshot: FactorySnapshot) => void,
+  disposition: {
+    excluded?: ReadonlySet<string>
+    settled?: boolean
+    archived?: boolean
+    onSettle?: () => void
+    onArchive?: () => Promise<void>
+  } = {},
+) {
   const { snapshot, task } = fixture()
-  configure?.(task)
+  configure?.(task, snapshot)
   return render(<FactoryTaskCard
     task={task} snapshot={snapshot} modelChoices={[]} artifactApi={{ artifactMedia: vi.fn(async () => ({ ok: true as const, value: [] })), artifactMediaData: vi.fn() } as never} artifactRefreshToken={snapshot.generatedAt} sessionId={sessionId} t={t}
     onBack={vi.fn()} onOpenSession={onOpenSession} onOpenSettings={vi.fn()}
+    excludedDependencySessionIds={disposition.excluded ?? new Set()} sessionSettled={disposition.settled ?? false} sessionArchived={disposition.archived ?? false}
+    onSettleSession={disposition.onSettle} onArchiveSession={disposition.onArchive}
     onUpdate={vi.fn(async () => undefined)} onAction={vi.fn(async () => undefined)}
     onComment={vi.fn(async () => undefined)} onConnect={vi.fn(async () => undefined)}
     onAttach={vi.fn(async () => undefined)}
@@ -68,6 +80,43 @@ describe('Factory task Session navigation', () => {
 
     expect(screen.getByText(sessionId)).toBeTruthy()
     expect(screen.queryByRole('button', { name: `Open Session ${sessionId}` })).toBeNull()
+  })
+
+  it('settles and archives the linked Session from task visibility controls', () => {
+    const onSettle = vi.fn()
+    const onArchive = vi.fn(async () => undefined)
+    renderCard(undefined, undefined, { onSettle, onArchive })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Settle' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Archive' }))
+    expect(onSettle).toHaveBeenCalledOnce()
+    expect(onArchive).toHaveBeenCalledOnce()
+  })
+
+  it('omits terminal and settled tasks from dependency choices', () => {
+    const settledSession = 'session:settled-candidate'
+    renderCard(undefined, (task, snapshot) => {
+      task.status = 'draft'
+      const candidate = (suffix: string, status: FactoryTask['status']): FactoryTask => ({
+        ...task, id: FactoryTaskId(`task:${suffix}`), identifier: `FAC-${suffix}`, title: suffix, prompt: suffix, status,
+      })
+      const available = candidate('available', 'queued')
+      const failed = candidate('failed', 'failed')
+      const complete = candidate('complete', 'succeeded')
+      const settled = candidate('settled', 'queued')
+      snapshot.document.tasks.push(available, failed, complete, settled)
+      snapshot.document.runs.push({
+        id: FactoryRunId('run:settled'), taskId: settled.id, origin: 'scheduler', attempt: 1, status: 'succeeded',
+        processId: FactoryProcessId('process:settled'), sessionId: settledSession,
+        startedAt: now, updatedAt: now, finishedAt: now,
+      })
+    }, { excluded: new Set([settledSession]) })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add dependency' }))
+    expect(screen.getByText('FAC-available · available')).toBeTruthy()
+    expect(screen.queryByText('FAC-failed · failed')).toBeNull()
+    expect(screen.queryByText('FAC-complete · complete')).toBeNull()
+    expect(screen.queryByText('FAC-settled · settled')).toBeNull()
   })
 
   it('renders initial screenshots as a compact carousel rail', () => {

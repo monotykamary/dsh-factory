@@ -1,7 +1,7 @@
 import {
   FactoryAttachmentId, FactoryCommentId, FactoryProcessId, FactoryProjectId, FactoryRunId, FactoryTaskId, deriveFlowStatus,
   type FactoryAttachment, type FactoryAttachmentInput, type FactoryAutomationSpec, type FactoryDocument, type FactoryFlow, type FactoryFlowId,
-  type FactoryPriority, type FactoryProject, type FactoryRun, type FactoryTask, type FactoryTaskAutomation,
+  type FactoryIntakeId, type FactoryPriority, type FactoryProject, type FactoryRun, type FactoryTask, type FactoryTaskAutomation,
 } from 'dsh-factory-protocol'
 import { nextFactoryRecurringRun, normalizeFactoryRecurringSchedule } from './schedule.ts'
 
@@ -141,6 +141,7 @@ export function addTask(document: FactoryDocument, input: {
   now: string
   flowId?: FactoryFlowId
   intakeSessionId?: string
+  intakeId?: FactoryIntakeId
   finalizer?: boolean
   finalizerPolicy?: FactoryTask['finalizerPolicy']
 }): FactoryTask {
@@ -158,6 +159,7 @@ export function addTask(document: FactoryDocument, input: {
     ...(automation === undefined ? {} : { automation }),
     ...(input.flowId === undefined ? {} : { flowId: input.flowId }),
     ...(input.intakeSessionId === undefined ? {} : { intakeSessionId: input.intakeSessionId }),
+    ...(input.intakeId === undefined ? {} : { intakeId: input.intakeId }),
     ...(input.finalizerPolicy === undefined ? {} : { finalizerPolicy: input.finalizerPolicy }),
   }
   if (task.title.length === 0 || task.prompt.length === 0) throw new Error('Factory task title and prompt are required')

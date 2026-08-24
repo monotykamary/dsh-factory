@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  FactoryFlowId, FactoryMetadataGenerationId, FactoryProcessId, FactoryProjectId, FactoryRunId, FactoryTaskId,
+  FactoryFlowId, FactoryIntakeId, FactoryMetadataGenerationId, FactoryProcessId, FactoryProjectId, FactoryRunId, FactoryTaskId,
   deriveFlowStatus, emptyFactoryDocument, factoryRecurringCron, factoryRecurringLabel, isTaskReady, orderTaskGraph,
   parseFactoryDocument, readyTasks, validateTaskGraph, type FactoryTask,
 } from '../src/index.ts'
@@ -114,8 +114,8 @@ describe('Factory graph', () => {
 
   it('retains non-empty New Session intake identity and rejects malformed durable values', () => {
     const document = emptyFactoryDocument()
-    document.tasks.push(task('intake', { intakeSessionId: 'session:blank' }))
-    expect(parseFactoryDocument(document).tasks[0]?.intakeSessionId).toBe('session:blank')
+    document.tasks.push(task('intake', { intakeSessionId: 'session:blank', intakeId: FactoryIntakeId('intake:one') }))
+    expect(parseFactoryDocument(document).tasks[0]).toMatchObject({ intakeSessionId: 'session:blank', intakeId: 'intake:one' })
     const malformed = structuredClone(document) as unknown as { tasks: Array<Record<string, unknown>> }
     malformed.tasks[0]!.intakeSessionId = ''
     expect(() => parseFactoryDocument(malformed)).toThrow()

@@ -28,7 +28,9 @@ export type FactoryAppInjected = {
   modelApi: IApiClient['llm']
   sessionRuntime: ISessions
   navigation: FactoryNavigation
+  settleSession: (sessionId: SessionId) => void
   unsettleSession: (sessionId: SessionId) => void
+  archiveSession: (sessionId: SessionId) => Promise<void>
 }
 
 /** Renderer props for the Factory root surface. */
@@ -104,17 +106,16 @@ export function WorkView({
   const [settledExpanded, setSettledExpanded] = useState(false)
   const normalized = query.trim().toLowerCase()
   const flowByTask = new Map(snapshot.document.flows.flatMap(flow => flow.taskIds.map(taskId => [taskId, flow] as const)))
-  const observedRunByTask = new Map<FactoryTask['id'], FactoryRun>()
+  const latestSessionRunByTask = new Map<FactoryTask['id'], FactoryRun>()
   for (const run of snapshot.document.runs) {
-    if (run.origin !== 'observed' || run.sessionId === undefined) continue
-    const existing = observedRunByTask.get(run.taskId)
-    if (existing === undefined || run.startedAt >= existing.startedAt) observedRunByTask.set(run.taskId, run)
+    if (run.sessionId === undefined) continue
+    const existing = latestSessionRunByTask.get(run.taskId)
+    if (existing === undefined || run.startedAt >= existing.startedAt) latestSessionRunByTask.set(run.taskId, run)
   }
   const settledSessions = new Set(settledSessionIds)
   const archivedSessions = new Set(archivedSessionIds)
   const dispositionOf = (task: FactoryTask): 'active' | 'settled' | 'hidden' => {
-    if (flowByTask.get(task.id)?.kind !== 'inbox') return 'active'
-    const sessionId = observedRunByTask.get(task.id)?.sessionId as SessionId | undefined
+    const sessionId = latestSessionRunByTask.get(task.id)?.sessionId as SessionId | undefined
     if (sessionId === undefined) return 'active'
     if (archivedSessions.has(sessionId) || snoozedUntilBySession[sessionId] !== undefined) return 'hidden'
     return settledSessions.has(sessionId) ? 'settled' : 'active'
@@ -195,7 +196,7 @@ export function WorkView({
                 const graphTasks = flow === undefined
                   ? [task]
                   : orderTaskGraph(flow.taskIds.flatMap(id => allTasks.get(id) ?? []))
-                const sessionId = observedRunByTask.get(task.id)?.sessionId as SessionId
+                const sessionId = latestSessionRunByTask.get(task.id)?.sessionId as SessionId
                 return row(task, graphTasks, projects.get(task.projectId)?.title, sessionId)
               })}
             </div>
@@ -208,7 +209,8 @@ export function WorkView({
 
 /** Full root Factory application surface. */
 export function FactoryApp({
-  api, modelApi, sessionRuntime, navigation, t, useSessions, useWorkspaces, useSessionDisposition, unsettleSession, openSurface,
+  api, modelApi, sessionRuntime, navigation, t, useSessions, useWorkspaces, useSessionDisposition,
+  settleSession, unsettleSession, archiveSession, openSurface,
 }: FactoryAppProps) {
   const factory = useFactory(api)
   const models = useFactoryModels(modelApi, factory.snapshot?.defaultModel)
@@ -216,6 +218,9 @@ export function FactoryApp({
   const archivedSessionIds = useWorkspaces(state => state.archivedSessionIds)
   const settledSessionIds = useSessionDisposition(state => state.settledSessionIds)
   const snoozedUntilBySession = useSessionDisposition(state => state.snoozedUntilBySession)
+  const unavailableDependencySessionIds = new Set<string>([
+    ...settledSessionIds, ...archivedSessionIds, ...Object.keys(snoozedUntilBySession),
+  ])
   const sessionList = useSessions(state => state)
   const [tab, setTab] = useState<Tab>('work')
   const [filter, setFilter] = useState<Filter>('all')
@@ -243,6 +248,9 @@ export function FactoryApp({
   const taskSession = listedTaskSessionId === undefined
     ? undefined
     : sessionRuntime.binding(listedTaskSessionId)?.session
+  const taskSessionKey = taskSessionId as SessionId | undefined
+  const taskSessionSettled = taskSessionKey !== undefined && settledSessionIds.includes(taskSessionKey)
+  const taskSessionArchived = taskSessionKey !== undefined && archivedSessionIds.includes(taskSessionKey)
   useEffect(() => {
     if (listedTaskSessionId !== undefined) sessionRuntime.open(listedTaskSessionId)
   }, [listedTaskSessionId, sessionRuntime])
@@ -274,7 +282,30 @@ export function FactoryApp({
   if (task !== undefined) return (
     <>
       {factory.error === undefined ? null : <div className={css.errorBanner} role="alert">{factory.error}</div>}
-      <FactoryTaskCard task={task} snapshot={snapshot} modelChoices={models.choices} artifactApi={api} artifactRunId={artifactRunId} artifactRefreshToken={String(snapshot.revision)} session={taskSession} sessionId={taskSessionId} t={t} onBack={() => { navigation.openWork() }} onOpenSession={listedTaskSessionId === undefined ? undefined : () => { openSurface('conversation'); sessionRuntime.open(listedTaskSessionId) }} onOpenSettings={(path) => { navigation.openWork(); setSettingsPath(path); setTab('settings') }} onUpdate={update} onComment={comment} onConnect={connect} onAttach={attach} onAction={action} />
+      <FactoryTaskCard
+        task={task}
+        snapshot={snapshot}
+        modelChoices={models.choices}
+        artifactApi={api}
+        artifactRunId={artifactRunId}
+        artifactRefreshToken={String(snapshot.revision)}
+        session={taskSession}
+        sessionId={taskSessionId}
+        t={t}
+        excludedDependencySessionIds={unavailableDependencySessionIds}
+        sessionSettled={taskSessionSettled}
+        sessionArchived={taskSessionArchived}
+        onBack={() => { navigation.openWork() }}
+        onOpenSession={listedTaskSessionId === undefined ? undefined : () => { openSurface('conversation'); sessionRuntime.open(listedTaskSessionId) }}
+        onOpenSettings={(path) => { navigation.openWork(); setSettingsPath(path); setTab('settings') }}
+        onSettleSession={taskSessionKey === undefined || taskSessionSettled || taskSessionArchived ? undefined : () => { settleSession(taskSessionKey); navigation.openWork() }}
+        onArchiveSession={taskSessionKey === undefined || taskSessionArchived ? undefined : async () => { await archiveSession(taskSessionKey); navigation.openWork() }}
+        onUpdate={update}
+        onComment={comment}
+        onConnect={connect}
+        onAttach={attach}
+        onAction={action}
+      />
     </>
   )
 

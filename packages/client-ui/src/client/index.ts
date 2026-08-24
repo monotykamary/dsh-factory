@@ -44,7 +44,16 @@ export async function apply(ctx: ClientContext): Promise<() => Promise<void>> {
     return created
   }
   const disposeLocale = ctx.locale.register('factory', { en, zh })
-  const disposeSubmission = ctx.conversation.submissions.register(factorySubmissionMiddleware({ api, controllerFor, navigation }))
+  const disposeSubmission = ctx.conversation.submissions.register(factorySubmissionMiddleware({
+    api,
+    controllerFor,
+    navigation,
+    clearDraft: (sessionId) => {
+      const binding = ctx.sessions.binding(sessionId)
+      if (binding === undefined) throw new Error(`dsh-factory: cannot clear unavailable Session ${sessionId}`)
+      ctx.conversation.input.for(binding.ctx).setDraft('')
+    },
+  }))
   const disposeIntent = ctx.slots.inject('conversation.input.left', () => ctx.slots.register({
     name: 'conversation.input.left', id: 'factory-intent', order: -100, locale: 'factory',
     inject: sessionId => ({ controller: controllerFor(sessionId) }),
@@ -56,7 +65,9 @@ export async function apply(ctx: ClientContext): Promise<() => Promise<void>> {
     locale: 'factory',
     inject: (): FactoryAppInjected => ({
       api, modelApi: connection.api.llm, sessionRuntime: ctx.sessions, navigation,
+      settleSession: sessionId => { sessionDisposition.settleSession(sessionId) },
       unsettleSession: sessionId => { sessionDisposition.unsettleSession(sessionId) },
+      archiveSession: async sessionId => { await ctx.workspaces.archiveSession(sessionId) },
       hooks: { sessionDisposition: sessionDisposition.state },
     }),
   }, FactoryApp)

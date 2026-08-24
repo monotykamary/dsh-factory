@@ -1,5 +1,6 @@
 import type { SessionId } from '@monotykamary/dsh-client-runtime/client'
 import type { ComposerSubmissionMiddleware } from '@monotykamary/dsh-client-ui-conversation/client'
+import { FactoryIntakeId } from 'dsh-factory-protocol'
 import type {
   FactoryAttachmentInput, FactoryFlowId, FactoryFlowIntakePlacement, FactoryFlowStatus, FactoryTaskId,
 } from 'dsh-factory-protocol'
@@ -128,6 +129,8 @@ export function factorySubmissionMiddleware(options: {
   readonly api: FactoryRemote
   readonly controllerFor: (sessionId: SessionId) => FactoryIntentController
   readonly navigation: FactoryNavigation
+  readonly clearDraft: (sessionId: SessionId) => void
+  readonly mintIntakeId?: (() => FactoryIntakeId) | undefined
 }): ComposerSubmissionMiddleware {
   return {
     order: -100,
@@ -140,11 +143,16 @@ export function factorySubmissionMiddleware(options: {
         ? { destination: 'flow' as const, flowId: intent.flowId, placement: intent.placement }
         : { destination: intent.kind === 'task' ? 'task' as const : intent.kind }
       const result = remoteValue(await options.api.intakeSession({
-        sessionId: request.sessionId, prompt: request.text, attachments, ...destination,
+        sessionId: request.sessionId,
+        intakeId: options.mintIntakeId?.() ?? FactoryIntakeId(crypto.randomUUID()),
+        prompt: request.text,
+        attachments,
+        ...destination,
       }))
       if (!result.snapshot.document.tasks.some(task => task.id === result.taskId)) {
         throw new Error(`Factory intake returned missing task ${result.taskId}`)
       }
+      options.clearDraft(request.sessionId)
       controller.reset()
       options.navigation.openTask(result.taskId)
       return { kind: 'success' }

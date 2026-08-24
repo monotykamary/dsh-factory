@@ -5,7 +5,7 @@ import AgentRegistry, { type Agent } from '@monotykamary/dsh-agent'
 import { Context } from '@monotykamary/cordis'
 import WorktreeRegistry, { type WorktreeProvider } from '@monotykamary/dsh-worktree'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { FactoryArtifactMediaId, FactoryProcessId } from 'dsh-factory-protocol'
+import { FactoryArtifactMediaId, FactoryIntakeId, FactoryProcessId } from 'dsh-factory-protocol'
 import { SqliteFactoryStore } from 'dsh-factory-store-sqlite'
 import { FactoryDomain } from 'dsh-factory-domain'
 
@@ -85,7 +85,7 @@ describe('FactoryDomain', () => {
     expect(stored.document.flows[0]).toMatchObject({ kind: 'inbox', title: 'Emerging work', status: 'waiting' })
     expect(stored.document.tasks[0]).toMatchObject({ title: 'Session to-inbox', status: 'waiting', model: 'mock:auto-model' })
     expect(stored.document.runs[0]).toMatchObject({ origin: 'observed', sessionId: 'session:auto-inbox', status: 'waiting' })
-    await expect(domain.intakeSession({ sessionId: agent.id, prompt: 'duplicate', destination: 'task' })).rejects.toThrow(/requires a blank idle Session/u)
+    await expect(domain.intakeSession({ sessionId: agent.id, intakeId: FactoryIntakeId('intake:not-blank'), prompt: 'duplicate', destination: 'task' })).rejects.toThrow(/requires a blank idle Session/u)
     list.mockRestore()
   })
 
@@ -103,6 +103,7 @@ describe('FactoryDomain', () => {
 
     const result = await domain.intakeSession({
       sessionId: agent.id,
+      intakeId: FactoryIntakeId('intake:first-task'),
       prompt: 'Inspect the workspace and repair the failing generated client.',
       destination: 'task',
       attachments: [{ name: 'failure.png', mediaType: 'image/png', dataUrl: 'data:image/png;base64,YQ==' }],
@@ -118,9 +119,24 @@ describe('FactoryDomain', () => {
     expect(intaken.document.runs).toHaveLength(0)
     expect(inject).not.toHaveBeenCalled()
 
-    const repeated = await domain.intakeSession({ sessionId: agent.id, prompt: task?.prompt ?? '', destination: 'task' })
+    const repeated = await domain.intakeSession({
+      sessionId: agent.id, intakeId: FactoryIntakeId('intake:first-task'), prompt: task?.prompt ?? '', destination: 'task',
+    })
     expect(repeated.taskId).toBe(result.taskId)
+    expect(repeated.snapshot.revision).toBe(result.snapshot.revision)
     expect(repeated.snapshot.document.tasks).toHaveLength(1)
+    await expect(domain.intakeSession({
+      sessionId: agent.id, intakeId: FactoryIntakeId('intake:first-task'), prompt: 'Conflicting retry.', destination: 'task',
+    })).rejects.toThrow(/reused with another prompt/u)
+
+    const next = await domain.intakeSession({
+      sessionId: agent.id, intakeId: FactoryIntakeId('intake:second-task'), prompt: 'Queue an independent follow-up.', destination: 'task',
+    })
+    expect(next.taskId).not.toBe(result.taskId)
+    expect(next.snapshot.document.tasks.map(candidate => candidate.prompt)).toEqual([
+      'Inspect the workspace and repair the failing generated client.',
+      'Queue an independent follow-up.',
+    ])
     expect(inject).not.toHaveBeenCalled()
     list.mockRestore()
   })
@@ -181,22 +197,22 @@ describe('FactoryDomain', () => {
       id: `session:${suffix}`, status: 'idle', session: { header: { cwd: projectPath }, events: [] }, options: {}, inject: vi.fn(),
     } as unknown as Agent))
     const list = vi.spyOn(context.agents, 'list').mockReturnValue(agents)
-    await expect(domain.intakeSession({ sessionId: agents[0]!.id, prompt: 'Invalid placement.', destination: 'flow', flowId: flow.id })).rejects.toThrow(/requires a flow and placement/u)
+    await expect(domain.intakeSession({ sessionId: agents[0]!.id, intakeId: FactoryIntakeId('intake:invalid'), prompt: 'Invalid placement.', destination: 'flow', flowId: flow.id })).rejects.toThrow(/requires a flow and placement/u)
 
     const sequential = await domain.intakeSession({
-      sessionId: agents[0]!.id, prompt: 'Verify the release.', destination: 'flow', flowId: flow.id, placement: 'sequential',
+      sessionId: agents[0]!.id, intakeId: FactoryIntakeId('intake:sequential'), prompt: 'Verify the release.', destination: 'flow', flowId: flow.id, placement: 'sequential',
     })
     const sequentialTask = sequential.snapshot.document.tasks.find(task => task.id === sequential.taskId)!
     expect(sequentialTask).toMatchObject({ flowId: flow.id, dependencyIds: [leaf.id], finalizer: false })
 
     const finalized = await domain.intakeSession({
-      sessionId: agents[1]!.id, prompt: 'Always clean the checkout.', destination: 'flow', flowId: flow.id, placement: 'finalizer',
+      sessionId: agents[1]!.id, intakeId: FactoryIntakeId('intake:finalizer'), prompt: 'Always clean the checkout.', destination: 'flow', flowId: flow.id, placement: 'finalizer',
     })
     const finalizer = finalized.snapshot.document.tasks.find(task => task.id === finalized.taskId)!
     expect(finalizer).toMatchObject({ flowId: flow.id, dependencyIds: [sequentialTask.id], finalizer: true, finalizerPolicy: 'always' })
 
     const parallel = await domain.intakeSession({
-      sessionId: agents[2]!.id, prompt: 'Prepare release notes in parallel.', destination: 'flow', flowId: flow.id, placement: 'parallel',
+      sessionId: agents[2]!.id, intakeId: FactoryIntakeId('intake:parallel'), prompt: 'Prepare release notes in parallel.', destination: 'flow', flowId: flow.id, placement: 'parallel',
     })
     const parallelTask = parallel.snapshot.document.tasks.find(task => task.id === parallel.taskId)!
     expect(parallelTask).toMatchObject({ flowId: flow.id, dependencyIds: [], finalizer: false })
@@ -215,7 +231,7 @@ describe('FactoryDomain', () => {
     const list = vi.spyOn(context.agents, 'list').mockReturnValue([agent])
 
     const intaken = await domain.intakeSession({
-      sessionId: agent.id, prompt: 'Prepare and verify the release flow.', destination: 'new-flow',
+      sessionId: agent.id, intakeId: FactoryIntakeId('intake:new-flow'), prompt: 'Prepare and verify the release flow.', destination: 'new-flow',
     })
     const flowId = intaken.snapshot.document.flows.find(flow => flow.kind === 'standard')?.id
     expect(flowId).toBeDefined()
@@ -228,8 +244,9 @@ describe('FactoryDomain', () => {
     }
     expect(settled.document.tasks[0]).toMatchObject({ title: 'Generated task title', description: 'Generated task description.' })
     expect(settled.document.flows.find(flow => flow.id === flowId)).toMatchObject({ title: 'Generated task title', description: 'Generated task description.' })
-    const repeated = await domain.intakeSession({ sessionId: agent.id, prompt: 'Prepare and verify the release flow.', destination: 'new-flow' })
+    const repeated = await domain.intakeSession({ sessionId: agent.id, intakeId: FactoryIntakeId('intake:new-flow'), prompt: 'Prepare and verify the release flow.', destination: 'new-flow' })
     expect(repeated.taskId).toBe(intaken.taskId)
+    expect(repeated.snapshot.revision).toBe(settled.revision)
     expect(repeated.snapshot.document.tasks.find(task => task.id === repeated.taskId)?.title).toBe('Generated task title')
     expect(repeated.snapshot.document.flows.filter(flow => flow.kind === 'standard')).toHaveLength(1)
     list.mockRestore()
@@ -278,6 +295,16 @@ describe('FactoryDomain', () => {
     const created = await domain.createTask({ projectPath, title: 'Inherited task', description: 'Explicit', prompt: 'work', expectedRevision: configured.revision })
     expect(created.document.tasks[0]).toMatchObject({ lane: { mode: 'current' } })
     expect(created.document.tasks[0]?.model).toBeUndefined()
+  })
+
+  it('rejects terminal tasks as newly selected dependencies', async () => {
+    const { domain, projectPath } = await fixture()
+    const terminalTask = (await domain.createTask({ projectPath, title: 'Terminal', prompt: 'terminal' })).document.tasks[0]!
+    const cancelled = await domain.cancel({ taskId: terminalTask.id })
+    const target = (await domain.createTask({ projectPath, title: 'Target', prompt: 'target', expectedRevision: cancelled.revision })).document.tasks.find(task => task.title === 'Target')!
+
+    await expect(domain.connect({ taskId: target.id, dependsOnTaskId: terminalTask.id })).rejects.toThrow(/terminal status cancelled/u)
+    await expect(domain.updateTask({ taskId: target.id, dependencyIds: [terminalTask.id] })).rejects.toThrow(/terminal status cancelled/u)
   })
 
   it('groups explicit standalone tasks and starts delayed stages atomically', async () => {

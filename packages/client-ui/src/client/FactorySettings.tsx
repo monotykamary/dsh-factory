@@ -112,10 +112,12 @@ export function FactorySettings({ snapshot, workspaces, choices, modelError, ini
         <label className={css.settingsToggle}><input type="checkbox" checked={autoTitle} onChange={event => { setAutoTitle(event.target.checked) }} /><span><strong>Generate titles and descriptions</strong><small>Opt out to use an immediate prompt-derived fallback you can edit later.</small></span></label>
         <details className={css.settingsAdvanced}>
           <summary>Advanced metadata prompts</summary>
-          <p>Customize the instructions sent to the title model. Output still uses strict title and description fields.</p>
-          <label><span>Task title instruction</span><textarea aria-label="Task title instruction" value={titlePrompt} onChange={event => { setTitlePrompt(event.target.value) }} /></label>
-          <label><span>Task description instruction</span><textarea aria-label="Task description instruction" value={descriptionPrompt} onChange={event => { setDescriptionPrompt(event.target.value) }} /></label>
-          <div className={css.settingsAdvancedActions}><Button variant="outline" size="sm" disabled={titlePrompt === DEFAULT_FACTORY_TITLE_PROMPT && descriptionPrompt === DEFAULT_FACTORY_DESCRIPTION_PROMPT} onClick={() => { setTitlePrompt(DEFAULT_FACTORY_TITLE_PROMPT); setDescriptionPrompt(DEFAULT_FACTORY_DESCRIPTION_PROMPT) }}>Reset prompts</Button></div>
+          <div className={css.settingsAdvancedBody}>
+            <p>Customize the instructions sent to the title model. Output still uses strict title and description fields.</p>
+            <label><span>Task title instruction</span><textarea aria-label="Task title instruction" value={titlePrompt} onChange={event => { setTitlePrompt(event.target.value) }} /></label>
+            <label><span>Task description instruction</span><textarea aria-label="Task description instruction" value={descriptionPrompt} onChange={event => { setDescriptionPrompt(event.target.value) }} /></label>
+            <div className={css.settingsAdvancedActions}><Button variant="outline" size="sm" disabled={titlePrompt === DEFAULT_FACTORY_TITLE_PROMPT && descriptionPrompt === DEFAULT_FACTORY_DESCRIPTION_PROMPT} onClick={() => { setTitlePrompt(DEFAULT_FACTORY_TITLE_PROMPT); setDescriptionPrompt(DEFAULT_FACTORY_DESCRIPTION_PROMPT) }}>Reset prompts</Button></div>
+          </div>
         </details>
         {modelError === undefined ? null : <div className={css.settingsNotice}>Model catalog unavailable: {modelError}</div>}
       </section>

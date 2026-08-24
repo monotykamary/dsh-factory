@@ -130,6 +130,12 @@ function containedPath(parent: string, candidate: string): boolean {
   return child === '' || (!isAbsolute(child) && child !== '..' && !child.startsWith(`..${sep}`))
 }
 
+function assertDependencyEligible(task: FactoryTask): void {
+  if (task.status === 'succeeded' || task.status === 'failed' || task.status === 'cancelled') {
+    throw new Error(`${task.identifier} cannot become a dependency from terminal status ${task.status}`)
+  }
+}
+
 /** Typert Remote service and authoritative Factory state machine. */
 export class FactoryDomain extends TypertRemoteService {
   static inject = ['factoryStore', 'agents', 'agentDefaultModel', 'llm', 'sessionTitle', 'worktrees']
@@ -310,49 +316,28 @@ export class FactoryDomain extends TypertRemoteService {
     let titleRequest: FactoryMetadataRequest | undefined
     let taskId: FactoryTaskId | undefined
     let mirroredFlowId: FactoryFlow['id'] | undefined
-    let firstIntake = false
-    let refreshMetadata = false
     const initial = await this.commit(request, (document, now) => {
       const project = ensureProject(document, resolved, now)
-      let task = document.tasks.find(candidate => candidate.intakeSessionId === request.sessionId)
-      if (task === undefined) {
-        if (document.runs.some(run => run.sessionId === request.sessionId && ['dispatching', 'running', 'waiting'].includes(run.status))) {
-          throw new Error(`Session ${request.sessionId} already belongs to Factory work`)
+      const existing = document.tasks.find(candidate => candidate.intakeId === request.intakeId)
+      if (existing !== undefined) {
+        if (existing.intakeSessionId !== request.sessionId) {
+          throw new Error(`Factory intake identity ${request.intakeId} belongs to another Session`)
         }
-        task = addTask(document, {
-          project, title: fallback.title, description: fallback.description, prompt,
-          priority: 3, labels: [], dependencyIds: [], lane: this.projectLane(project),
-          attachments: attachments(request.attachments ?? [], now, this.config.attachmentLimit, this.config.attachmentBytes),
-          enqueue: false, now, intakeSessionId: request.sessionId,
-          ...(agent.session.header.agentPreset === undefined ? {} : { preset: agent.session.header.agentPreset }),
-          ...(agent.options.provider === undefined || agent.options.model === undefined ? {} : { model: `${agent.options.provider}:${agent.options.model}` }),
-        })
-        firstIntake = true
-        refreshMetadata = true
-      } else {
-        if (task.activeRunId !== undefined) throw new Error(`Factory intake task ${task.identifier} is already active`)
-        refreshMetadata = task.prompt !== prompt
+        if (existing.prompt !== prompt) throw new Error(`Factory intake identity ${request.intakeId} was reused with another prompt`)
+        taskId = existing.id
+        return FACTORY_STORE_NO_CHANGE
       }
-
-      task.intakeSessionId = request.sessionId
-      task.prompt = prompt
-      if (firstIntake || refreshMetadata) {
-        task.title = fallback.title
-        task.description = fallback.description
+      if (document.runs.some(run => run.sessionId === request.sessionId && ['dispatching', 'running', 'waiting'].includes(run.status))) {
+        throw new Error(`Session ${request.sessionId} already belongs to Factory work`)
       }
-      task.status = 'draft'
-      task.priority = 3
-      task.labels = []
-      task.lane = this.projectLane(project)
-      task.attachments = attachments(request.attachments ?? [], now, this.config.attachmentLimit, this.config.attachmentBytes)
-      task.updatedAt = now
-      delete task.failure
-      delete task.output
-      delete task.automation
-      if (agent.session.header.agentPreset === undefined) delete task.preset
-      else task.preset = agent.session.header.agentPreset
-      if (agent.options.provider === undefined || agent.options.model === undefined) delete task.model
-      else task.model = `${agent.options.provider}:${agent.options.model}`
+      const task = addTask(document, {
+        project, title: fallback.title, description: fallback.description, prompt,
+        priority: 3, labels: [], dependencyIds: [], lane: this.projectLane(project),
+        attachments: attachments(request.attachments ?? [], now, this.config.attachmentLimit, this.config.attachmentBytes),
+        enqueue: false, now, intakeSessionId: request.sessionId, intakeId: request.intakeId,
+        ...(agent.session.header.agentPreset === undefined ? {} : { preset: agent.session.header.agentPreset }),
+        ...(agent.options.provider === undefined || agent.options.model === undefined ? {} : { model: `${agent.options.provider}:${agent.options.model}` }),
+      })
 
       const source = task.flowId === undefined ? undefined : document.flows.find(flow => flow.id === task.flowId)
       let destination: FactoryFlow
@@ -414,7 +399,7 @@ export class FactoryDomain extends TypertRemoteService {
       }
 
       taskId = task.id
-      if (refreshMetadata && this.shouldGenerateMetadata(project.settings, undefined, undefined)) {
+      if (this.shouldGenerateMetadata(project.settings, undefined, undefined)) {
         titleRequest = factoryMetadataRequest(prompt, this.metadataRoute(project), this.config.titleMaxOutputTokens, {
           ...(project.settings.titlePrompt === undefined ? {} : { title: project.settings.titlePrompt }),
           ...(project.settings.descriptionPrompt === undefined ? {} : { description: project.settings.descriptionPrompt }),
@@ -422,7 +407,7 @@ export class FactoryDomain extends TypertRemoteService {
         generation = this.appendMetadataGeneration(document, project.id, { kind: 'task', id: task.id }, titleRequest, now)
       }
       deriveFlows(document, now)
-      if (firstIntake) activity(document, this.config.activityLimit, `${task.identifier} created from New Session`, 'session-intake', now, task, destination)
+      activity(document, this.config.activityLimit, `${task.identifier} created from New Session`, 'session-intake', now, task, destination)
     })
 
     if (taskId === undefined) throw new Error('Factory Session intake did not create or resolve a task')
@@ -601,7 +586,11 @@ export class FactoryDomain extends TypertRemoteService {
       if (request.prompt !== undefined) task.prompt = request.prompt.trim()
       if (request.priority !== undefined) task.priority = request.priority
       if (request.labels !== undefined) task.labels = [...new Set(request.labels.map(label => label.trim()).filter(Boolean))]
-      if (request.dependencyIds !== undefined) task.dependencyIds = [...new Set(request.dependencyIds)]
+      if (request.dependencyIds !== undefined) {
+        const dependencyIds = [...new Set(request.dependencyIds)]
+        for (const id of dependencyIds) assertDependencyEligible(expectTask(document, id))
+        task.dependencyIds = dependencyIds
+      }
       if (request.lane !== undefined) task.lane = structuredClone(request.lane)
       if (request.preset !== undefined) this.replaceOptional(task, 'preset', request.preset)
       if (request.model !== undefined) this.replaceOptional(task, 'model', request.model)
@@ -642,6 +631,7 @@ export class FactoryDomain extends TypertRemoteService {
       const flow = task.flowId === undefined ? undefined : document.flows.find(candidate => candidate.id === task.flowId)
       if (task.activeRunId !== undefined && flow?.kind !== 'inbox') throw new Error(`${task.identifier} cannot change dependencies while a run is active`)
       const dependency = expectTask(document, request.dependsOnTaskId)
+      assertDependencyEligible(dependency)
       if (flow?.kind === 'inbox' && dependency.flowId !== flow.id) throw new Error('Emerging-work dependencies must stay in the same sink')
       if (!task.dependencyIds.includes(request.dependsOnTaskId)) task.dependencyIds.push(request.dependsOnTaskId)
       task.updatedAt = now
@@ -959,7 +949,10 @@ export class FactoryDomain extends TypertRemoteService {
     return this.ctx.factoryStore.read()
   }
 
-  private commit(request: FactoryMutationRequest, mutation: (document: FactoryDocument, now: string) => void): Promise<FactorySnapshot> {
+  private commit(
+    request: FactoryMutationRequest,
+    mutation: (document: FactoryDocument, now: string) => void | typeof FACTORY_STORE_NO_CHANGE,
+  ): Promise<FactorySnapshot> {
     const now = iso()
     return this.ctx.factoryStore.mutate(request.expectedRevision, (document) => mutation(document, now)).then(async (stored) => {
       this.ctx.emit('factory/changed', stored.revision)

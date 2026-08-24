@@ -120,13 +120,17 @@ describe('Factory Emerging Work disposition', () => {
     expect(screen.getByText('No Factory work matches this view.')).toBeTruthy()
   })
 
-  it('keeps named-flow tasks visible when their linked Session is settled, snoozed, and archived', () => {
+  it('applies settled and archived Session disposition to named-flow tasks', () => {
     const sessionId = 'session:named-flow' as SessionId
-    renderWork(fixture([{ suffix: 'named', sessionId, kind: 'standard' }]), {
-      settled: [sessionId], snoozed: { [sessionId]: Date.now() + 60_000 }, archived: [sessionId],
-    })
+    const value = fixture([{ suffix: 'named', sessionId, kind: 'standard' }])
+    renderWork(value, { settled: [sessionId] })
 
-    expect(screen.getByTestId('factory-task-FAC-1')).toBeTruthy()
+    expect(screen.queryByTestId('factory-task-FAC-1')).toBeNull()
+    expect(screen.getByTestId('factory-settled-emerging')).toBeTruthy()
+
+    cleanup()
+    renderWork(value, { archived: [sessionId] })
+    expect(screen.queryByTestId('factory-task-FAC-1')).toBeNull()
     expect(screen.queryByTestId('factory-settled-emerging')).toBeNull()
   })
 })

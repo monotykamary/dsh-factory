@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
-  Bot, Button, ChevronLeft, ChevronRight, CircleCheck, CircleX, Clock3, GitBranch, MarkdownText,
+  Archive, Bot, Button, Check, ChevronLeft, ChevronRight, CircleCheck, CircleX, Clock3, GitBranch, MarkdownText,
   MessageSquareText, Paperclip, Pause, Play, Settings, Undo2,
 } from '@monotykamary/dsh-client-ui-primitives'
 import { ProducedFilesCard, type DeliverableChange } from '@monotykamary/dsh-client-ui-deliverables/client'
@@ -39,6 +39,11 @@ interface Props {
   sessionId?: string | undefined
   onOpenSession?: (() => void) | undefined
   onOpenSettings: (path: string) => void
+  excludedDependencySessionIds: ReadonlySet<string>
+  sessionSettled: boolean
+  sessionArchived: boolean
+  onSettleSession?: (() => void) | undefined
+  onArchiveSession?: (() => Promise<void>) | undefined
   onUpdate: (request: FactoryUpdateTaskRequest) => Promise<void>
   onAction: (action: 'enqueue' | 'pause' | 'cancel' | 'retry', request: FactoryTaskActionRequest) => Promise<void>
   onComment: (request: FactoryCommentRequest) => Promise<void>
@@ -48,6 +53,12 @@ interface Props {
 
 function terminal(status: FactoryTask['status']): boolean {
   return status === 'succeeded' || status === 'failed' || status === 'cancelled'
+}
+
+function latestTaskSessionId(snapshot: FactorySnapshot, task: FactoryTask): string | undefined {
+  return snapshot.document.runs
+    .filter(run => run.taskId === task.id && run.sessionId !== undefined)
+    .toSorted((left, right) => right.startedAt.localeCompare(left.startedAt))[0]?.sessionId
 }
 
 function outputChanges(task: FactoryTask): DeliverableChange[] {
@@ -67,7 +78,11 @@ function actionForStatus(task: FactoryTask, status: FactoryTaskStatus): 'enqueue
 }
 
 /** Circle-style Factory task page with prompt automation, properties, dependencies, discussion, and audit activity. */
-export function FactoryTaskCard({ task, snapshot, modelChoices, artifactApi, artifactRunId, artifactRefreshToken, session, sessionId, t, onBack, onOpenSession, onOpenSettings, onUpdate, onAction, onComment, onConnect, onAttach }: Props) {
+export function FactoryTaskCard({
+  task, snapshot, modelChoices, artifactApi, artifactRunId, artifactRefreshToken, session, sessionId, t,
+  onBack, onOpenSession, onOpenSettings, excludedDependencySessionIds, sessionSettled, sessionArchived,
+  onSettleSession, onArchiveSession, onUpdate, onAction, onComment, onConnect, onAttach,
+}: Props) {
   const project = snapshot.document.projects.find(candidate => candidate.id === task.projectId)
   const effectiveModel = task.model ?? project?.settings.model ?? snapshot.defaultModel
   const [editing, setEditing] = useState(false)
@@ -91,8 +106,16 @@ export function FactoryTaskCard({ task, snapshot, modelChoices, artifactApi, art
   const flow = snapshot.document.flows.find(candidate => candidate.id === task.flowId)
   const dependencies = task.dependencyIds.flatMap(id => snapshot.document.tasks.find(candidate => candidate.id === id) ?? [])
   const dependents = snapshot.document.tasks.filter(candidate => candidate.dependencyIds.includes(task.id))
-  const candidates = snapshot.document.tasks.filter(candidate => candidate.id !== task.id && candidate.projectId === task.projectId && !task.dependencyIds.includes(candidate.id) && !candidate.finalizer
-    && (flow?.kind !== 'inbox' || candidate.flowId === flow.id))
+  const candidates = snapshot.document.tasks.filter(candidate => {
+    const linkedSessionId = latestTaskSessionId(snapshot, candidate)
+    return candidate.id !== task.id
+      && candidate.projectId === task.projectId
+      && !task.dependencyIds.includes(candidate.id)
+      && !candidate.finalizer
+      && !terminal(candidate.status)
+      && (linkedSessionId === undefined || !excludedDependencySessionIds.has(linkedSessionId))
+      && (flow?.kind !== 'inbox' || candidate.flowId === flow.id)
+  })
   const emerging = snapshot.agents.filter(candidate => candidate.taskId === undefined)
   const activities = snapshot.document.activities.filter(entry => entry.taskId === task.id && entry.kind !== 'comment-added').toReversed()
   const priorityCounts = new Map([0, 1, 2, 3, 4].map(priority => [priority as FactoryTask['priority'], snapshot.document.tasks.filter(candidate => candidate.priority === priority).length]))
@@ -231,6 +254,28 @@ export function FactoryTaskCard({ task, snapshot, modelChoices, artifactApi, art
               <div className={css.propertyRow}><span className={css.propertyIcon}><MessageSquareText size={15} /></span>{sessionId === undefined || onOpenSession === undefined ? <span>{sessionId ?? 'No Session'}</span> : <button type="button" className={css.sessionLink} aria-label={`Open Session ${sessionId}`} title={`Open Session ${sessionId}`} onClick={onOpenSession}>{sessionId}</button>}</div>
             </div>
           </section>
+
+          {sessionId === undefined ? null : (
+            <section className={css.propertySection}>
+              <h2>{t('disposition')}</h2>
+              <div className={css.taskDispositionActions}>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  icon={<Check size={13} />}
+                  disabled={busy || sessionSettled || sessionArchived || onSettleSession === undefined}
+                  onClick={() => { onSettleSession?.() }}
+                >{sessionSettled ? t('settled') : t('settle')}</Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  icon={<Archive size={13} />}
+                  disabled={busy || sessionArchived || onArchiveSession === undefined}
+                  onClick={() => { if (onArchiveSession !== undefined) void perform(onArchiveSession) }}
+                >{sessionArchived ? t('archived') : t('archive')}</Button>
+              </div>
+            </section>
+          )}
 
           <section className={css.propertySection}>
             <h2>Labels</h2>

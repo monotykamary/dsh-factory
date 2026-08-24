@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { SessionId } from '@monotykamary/dsh-client-runtime/client'
 import {
-  FactoryFlowId, FactoryProcessId, FactoryProjectId, FactoryRunId, FactoryTaskId,
+  FactoryFlowId, FactoryIntakeId, FactoryProcessId, FactoryProjectId, FactoryRunId, FactoryTaskId,
   emptyFactoryDocument, type FactorySnapshot,
 } from 'dsh-factory-protocol'
 import type { FactoryRemote } from '../src/client/factory-client.ts'
@@ -64,7 +64,7 @@ describe('Factory New Session intake', () => {
     const remote = api()
     const controller = new FactoryIntentController(remote, () => '/repo')
     const navigation = new FactoryNavigation(vi.fn())
-    const middleware = factorySubmissionMiddleware({ api: remote, controllerFor: () => controller, navigation })
+    const middleware = factorySubmissionMiddleware({ api: remote, controllerFor: () => controller, navigation, clearDraft: vi.fn() })
     const next = vi.fn(() => Promise.resolve({ kind: 'success' as const }))
 
     await expect(middleware.submit({ sessionId, text: 'Hello', images: [], mode: 'queue', signal: new AbortController().signal }, next)).resolves.toEqual({ kind: 'success' })
@@ -78,11 +78,16 @@ describe('Factory New Session intake', () => {
     controller.select({ kind: 'task', run: 'later' })
     const openSurface = vi.fn()
     const navigation = new FactoryNavigation(openSurface)
-    const middleware = factorySubmissionMiddleware({ api: remote, controllerFor: () => controller, navigation })
+    const clearDraft = vi.fn()
+    const middleware = factorySubmissionMiddleware({
+      api: remote, controllerFor: () => controller, navigation, clearDraft,
+      mintIntakeId: () => FactoryIntakeId('intake:task'),
+    })
 
     const next = vi.fn(() => Promise.resolve({ kind: 'success' as const }))
     await expect(middleware.submit({ sessionId, text: 'Inspect workspace', images: [], mode: 'queue', signal: new AbortController().signal }, next)).resolves.toEqual({ kind: 'success' })
-    expect(remote.intakeSession).toHaveBeenCalledWith({ sessionId, prompt: 'Inspect workspace', attachments: [], destination: 'task' })
+    expect(remote.intakeSession).toHaveBeenCalledWith({ sessionId, intakeId: 'intake:task', prompt: 'Inspect workspace', attachments: [], destination: 'task' })
+    expect(clearDraft).toHaveBeenCalledWith(sessionId)
     expect(next).not.toHaveBeenCalled()
     expect(controller.intent).toEqual({ kind: 'task', run: 'now' })
     expect(navigation.store.getSnapshot()).toEqual({ taskId })
@@ -96,13 +101,18 @@ describe('Factory New Session intake', () => {
     controller.select({ kind: 'flow', flowId, flowTitle: 'Release flow', placement: 'finalizer' })
     const openSurface = vi.fn()
     const navigation = new FactoryNavigation(openSurface)
-    const middleware = factorySubmissionMiddleware({ api: remote, controllerFor: () => controller, navigation })
+    const clearDraft = vi.fn()
+    const middleware = factorySubmissionMiddleware({
+      api: remote, controllerFor: () => controller, navigation, clearDraft,
+      mintIntakeId: () => FactoryIntakeId('intake:flow'),
+    })
 
     const next = vi.fn(() => Promise.resolve({ kind: 'success' as const }))
     await expect(middleware.submit({ sessionId, text: 'Clean up', images: [], mode: 'queue', signal: new AbortController().signal }, next)).rejects.toThrow('intake failed')
     expect(remote.intakeSession).toHaveBeenCalledWith({
-      sessionId, prompt: 'Clean up', attachments: [], destination: 'flow', flowId, placement: 'finalizer',
+      sessionId, intakeId: 'intake:flow', prompt: 'Clean up', attachments: [], destination: 'flow', flowId, placement: 'finalizer',
     })
+    expect(clearDraft).not.toHaveBeenCalled()
     expect(next).not.toHaveBeenCalled()
     expect(controller.intent).toEqual({ kind: 'flow', flowId, flowTitle: 'Release flow', placement: 'finalizer' })
     expect(openSurface).not.toHaveBeenCalled()
