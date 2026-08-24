@@ -5,15 +5,17 @@ import type {} from '@monotykamary/dsh-client-locale/client'
 import type {} from '@monotykamary/dsh-client-ui-conversation/client'
 import type {} from '@monotykamary/dsh-client-ui-layout/client'
 import type {} from '@monotykamary/dsh-client-ui-sidebar/client'
+import type { SessionDispositionContract } from '@monotykamary/dsh-client-ui-workspace/client'
 import factoryRemote from 'dsh-factory-domain/remote'
 import { FactoryApp } from './FactoryApp.tsx'
+import type { FactoryAppInjected } from './FactoryApp.tsx'
 import { FactoryIntentSelect } from './FactoryIntentSelect.tsx'
 import { FactoryIntentController, FactoryNavigation, factorySubmissionMiddleware } from './factory-intake.ts'
 import type { FactoryRemote } from './factory-client.ts'
 import { FactoryNav } from './FactoryNav.tsx'
 import { en, zh } from './locales.ts'
 
-export const inject = ['slots', 'locale', 'remote', 'connection', 'conversation', 'layout', 'sessions']
+export const inject = ['slots', 'locale', 'remote', 'connection', 'conversation', 'layout', 'sessions', 'sessionDisposition']
 
 declare module '@monotykamary/dsh-client-ui-layout/client' {
   interface ApplicationSurfaceMap {
@@ -26,6 +28,7 @@ export async function apply(ctx: ClientContext): Promise<() => Promise<void>> {
   const disposeRemote = await ctx.remote.$mount(factoryRemote)
   const api = ctx.get('remote.factory') as FactoryRemote | undefined
   const connection = ctx.get('connection') as ConnectionHandle
+  const sessionDisposition = ctx.get('sessionDisposition') as SessionDispositionContract
   if (api === undefined) {
     await disposeRemote()
     throw new Error('dsh-factory: generated Remote namespace did not activate')
@@ -51,7 +54,11 @@ export async function apply(ctx: ClientContext): Promise<() => Promise<void>> {
     priority: 10,
     select: owner => owner.activeSurface === 'factory' ? true : null,
     locale: 'factory',
-    inject: () => ({ api, modelApi: connection.api.llm, sessionRuntime: ctx.sessions, navigation }),
+    inject: (): FactoryAppInjected => ({
+      api, modelApi: connection.api.llm, sessionRuntime: ctx.sessions, navigation,
+      unsettleSession: sessionId => { sessionDisposition.unsettleSession(sessionId) },
+      hooks: { sessionDisposition: sessionDisposition.state },
+    }),
   }, FactoryApp)
   const disposeNavigation = ctx.slots.register({
     name: 'sidebar.navigation', id: 'factory', order: 10, label: () => ctx.locale.bind('factory')('nav'), locale: 'factory',

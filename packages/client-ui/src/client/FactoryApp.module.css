@@ -273,6 +273,70 @@
   font-size: 10px;
 }
 
+.settledEmergingToggle {
+  width: 100%;
+  min-height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 7px;
+  color: var(--dsw-alias-label-secondary);
+  background: transparent;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.settledEmergingToggle:hover {
+  color: var(--dsw-alias-label-primary);
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.settledEmergingToggle:focus-visible {
+  outline: 1px solid var(--dsw-alias-state-business-primary);
+  outline-offset: 1px;
+}
+
+.settledEmergingToggle > span {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.settledEmergingToggle strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.settledEmergingToggle em {
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: var(--dsw-alias-interactive-bg-hover);
+  font-size: 10px;
+  font-style: normal;
+}
+
+.settledEmergingToggle small {
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 11px;
+}
+
+.settledEmergingToggle svg:last-child {
+  flex: none;
+  transition: transform var(--ds-transition-duration-fast) ease;
+}
+
+.settledEmergingToggle[aria-expanded='true'] svg:last-child {
+  transform: rotate(180deg);
+}
+
 .taskRows {
   overflow: hidden;
   border: 1px solid var(--dsw-alias-border-l1);
@@ -313,6 +377,15 @@
 
 .taskRowOpen:focus-visible {
   box-shadow: inset 0 0 0 1px var(--dsw-alias-state-business-primary);
+}
+
+.restorableTaskRow {
+  grid-template-columns: 26px 58px 24px minmax(0, 1fr) auto;
+}
+
+.unsettleTask {
+  justify-self: end;
+  white-space: nowrap;
 }
 
 .taskRow:last-child {

@@ -1,6 +1,7 @@
 export const en = {
   nav: 'Factory', title: 'Factory', work: 'Work', settings: 'Settings',
   search: 'Search tasks', empty: 'No Factory work matches this view.', emerging: 'Emerging sessions', leader: 'Scheduler leader',
+  'emerging.settled': 'Settled emerging work', 'emerging.settledCount': 'Sessions · {count}', 'emerging.unsettle': 'Un-settle', 'emerging.unsettleTask': 'Un-settle {title}',
   project: 'Project', prompt: 'Agent prompt',
   attachments: 'Screenshots',
   'comment.queued': 'Queued · not steered', 'comment.steeredPending': 'Steered · waiting to post', 'comment.posted': 'Posted', 'comment.steered': 'Steered', 'comment.note': 'Saved note', 'comment.you': 'You', 'comment.agent': 'Agent', 'comment.system': 'System', 'comment.empty': 'No comments or follow-up prompts yet.', 'comment.edit': 'Edit queued prompt', 'comment.save': 'Save queued prompt', 'comment.cancel': 'Cancel editing', 'comment.remove': 'Remove queued prompt', 'comment.moveEarlier': 'Move prompt earlier', 'comment.moveLater': 'Move prompt later', 'comment.steerNow': 'Steer now', 'comment.queuePrompt': 'Queue prompt', 'comment.sendPrompt': 'Send prompt', 'comment.placeholderPrompt': 'Add a prompt or steer the running agent…', 'comment.placeholderConnecting': 'Connecting to the task Session…', 'comment.placeholderNote': 'Leave a comment…', 'comment.hintQueue': 'Cmd/Ctrl+Enter queues · Shift+Cmd/Ctrl+Enter steers', 'comment.hintConnecting': 'Waiting for the active task Session', 'comment.connecting': 'Connecting…', 'comment.hintNote': 'Cmd/Ctrl+Enter to comment', 'comment.questionTitle': 'Agent needs your answer', 'comment.questionHint': 'This task and its dependent work stay paused until you respond.', 'comment.answerQuestion': 'Answer in Session',
@@ -13,6 +14,7 @@ export const en = {
 export const zh: Record<keyof typeof en, string> = {
   nav: '工厂', title: '任务工厂', work: '工作', settings: '设置',
   search: '搜索任务', empty: '当前视图中没有匹配的任务。', emerging: '涌现中的会话', leader: '调度器主节点',
+  'emerging.settled': '已结涌现工作', 'emerging.settledCount': '会话 · {count}', 'emerging.unsettle': '取消结算', 'emerging.unsettleTask': '取消结算 {title}',
   project: '项目', prompt: '代理提示',
   attachments: '截图',
   'comment.queued': '已排队 · 尚未插话', 'comment.steeredPending': '已插话 · 等待发布', 'comment.posted': '已发布', 'comment.steered': '已插话', 'comment.note': '已保存备注', 'comment.you': '你', 'comment.agent': '代理', 'comment.system': '系统', 'comment.empty': '还没有评论或后续提示。', 'comment.edit': '编辑排队提示', 'comment.save': '保存排队提示', 'comment.cancel': '取消编辑', 'comment.remove': '移除排队提示', 'comment.moveEarlier': '提前提示', 'comment.moveLater': '延后提示', 'comment.steerNow': '立即插话', 'comment.queuePrompt': '排队提示', 'comment.sendPrompt': '发送提示', 'comment.placeholderPrompt': '添加提示或插话运行中的代理…', 'comment.placeholderConnecting': '正在连接任务会话…', 'comment.placeholderNote': '留下评论…', 'comment.hintQueue': 'Cmd/Ctrl+Enter 排队 · Shift+Cmd/Ctrl+Enter 插话', 'comment.hintConnecting': '正在等待活动任务会话', 'comment.connecting': '连接中…', 'comment.hintNote': 'Cmd/Ctrl+Enter 添加评论', 'comment.questionTitle': '代理需要你的回答', 'comment.questionHint': '此任务及其依赖工作将在你回答前保持暂停。', 'comment.answerQuestion': '在会话中回答',

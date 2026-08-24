@@ -1,4 +1,26 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
+
+async function dismissFirstRun(page: Page): Promise<void> {
+  const continueButton = page.getByRole('button', { name: 'Continue', exact: true })
+  const configureLater = page.getByRole('button', { name: 'Configure later' })
+  let firstRun: 'continue' | 'configure' | undefined
+  try {
+    firstRun = await Promise.any([
+      continueButton.waitFor({ timeout: 5_000 }).then(() => 'continue' as const),
+      configureLater.waitFor({ timeout: 5_000 }).then(() => 'configure' as const),
+    ])
+  } catch {
+    // Neither first-run dialog is part of a configured profile.
+  }
+  if (firstRun === 'continue') {
+    await continueButton.click()
+    await configureLater.waitFor()
+  }
+  if (firstRun !== undefined) {
+    await configureLater.click()
+    await configureLater.waitFor({ state: 'hidden' })
+  }
+}
 
 test('Factory reuses New Session intake and presents Emerging work, rail states, Triage, and settings', async ({ page }) => {
   test.skip(process.env.DSH_FACTORY_E2E_URL === undefined, 'set DSH_FACTORY_E2E_URL to an assembled Factory web profile')
@@ -7,8 +29,7 @@ test('Factory reuses New Session intake and presents Emerging work, rail states,
   page.on('pageerror', error => { browserErrors.push(error.message) })
 
   await page.goto('/', { waitUntil: 'networkidle' })
-  const configureLater = page.getByRole('button', { name: 'Configure later' })
-  if (await configureLater.count()) await configureLater.click()
+  await dismissFirstRun(page)
   await page.getByRole('button', { name: 'Factory' }).click()
   await expect(page.getByTestId('factory-app')).toBeVisible()
   const tabs = page.getByRole('navigation', { name: 'Factory views' })
@@ -178,9 +199,9 @@ test('Factory uses progressive mobile disclosure without horizontal overflow', a
   test.skip(process.env.DSH_FACTORY_E2E_URL === undefined, 'set DSH_FACTORY_E2E_URL to an assembled Factory web profile')
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto('/', { waitUntil: 'networkidle' })
-  const configureLater = page.getByRole('button', { name: 'Configure later' })
-  if (await configureLater.count()) await configureLater.click()
+  await dismissFirstRun(page)
   await page.getByRole('button', { name: 'Open sidebar' }).click()
+  await dismissFirstRun(page)
   await page.getByRole('button', { name: 'Factory', exact: true }).click()
   await page.keyboard.press('Escape')
 

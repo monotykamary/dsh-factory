@@ -25,6 +25,7 @@ overrides:
   '@monotykamary/dsh-client-ui-layout': 'link:../deepseek-harness/packages/client/ui-layout'
   '@monotykamary/dsh-client-ui-primitives': 'link:../deepseek-harness/packages/client/ui-primitives'
   '@monotykamary/dsh-client-ui-sidebar': 'link:../deepseek-harness/packages/client/ui-sidebar'
+  '@monotykamary/dsh-client-ui-workspace': 'link:../deepseek-harness/packages/client/ui-workspace'
   '@monotykamary/dsh-client-ui-slots': 'link:../deepseek-harness/packages/client/ui-slots'
   '@monotykamary/dsh-home-paths': 'link:../deepseek-harness/packages/util/home-paths'
   '@monotykamary/dsh-invariants': 'link:../deepseek-harness/packages/runtime-diagnostics/invariants'
