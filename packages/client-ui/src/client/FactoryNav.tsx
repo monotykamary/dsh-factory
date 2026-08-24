@@ -8,13 +8,13 @@ export function FactoryNav({ wide, activeSurface, openSurface, t }: PropsRuntime
   return (
     <button
       type="button"
-      className={css.navRow}
+      className={wide ? css.navRow : `${css.navRow} ${css.navRowRail}`}
       data-active={active || undefined}
       aria-label={t('nav')}
       aria-current={active ? 'page' : undefined}
       onClick={() => { openSurface('factory') }}
     >
-      <Rows2 size={17} aria-hidden="true" />
+      <Rows2 size={wide ? 16 : 18} aria-hidden="true" />
       {wide ? <span>{t('nav')}</span> : null}
     </button>
   )
