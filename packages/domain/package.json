@@ -1,6 +1,6 @@
 {
   "name": "dsh-factory-domain",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Factory graph state transitions, Agent presence, and Typert Remote service",
   "type": "module",
   "license": "MIT",
