@@ -1,6 +1,6 @@
 {
   "name": "dsh-factory-protocol",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Host-independent Factory records and dependency-graph algorithms",
   "type": "module",
   "license": "MIT",

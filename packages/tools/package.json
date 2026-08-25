@@ -1,6 +1,6 @@
 {
   "name": "dsh-factory-tools",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Factory model tools, explicit run completion, and operating skill",
   "type": "module", "license": "MIT",
   "exports": { ".": { "types": "./lib/types/index.d.ts", "import": "./lib/index.js" }, "./package.json": "./package.json" },
