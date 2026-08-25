@@ -373,4 +373,51 @@ describe('FactoryScheduler', () => {
       && (event.data as { source?: { kind?: string } }).source?.kind === 'factory-task')
     expect(JSON.stringify(assignment?.data)).toContain('call ask_user_question and wait for its result')
   })
+
+  it('applies a mid-run task model change to the next model step', async () => {
+    root = await mkdtemp(join(tmpdir(), 'dsh-factory-model-switch-'))
+    const projectPath = join(root, 'repo')
+    await mkdir(projectPath)
+    const question = {
+      id: 'gate', question: 'May the run continue?',
+      options: [{ label: 'Continue' }, { label: 'Stop' }],
+    }
+    const adapter = new ScriptedAdapter([
+      toolCall('ask_user_question', { questions: [question] }, 'model-switch-question'),
+      finishCall('Completed after the model switch', 'model-switch-finish'),
+      textResponse('Done.'),
+    ])
+    const { context, domain } = await schedulerHarness(projectPath, adapter)
+    const requested = Promise.withResolvers<AskUserQuestionRequest>()
+    const answer = Promise.withResolvers<AskUserQuestionAnswer>()
+    context.userQuestions.registerProvider({
+      ask(request) {
+        requested.resolve(request)
+        return answer.promise
+      },
+    })
+
+    await domain.updateProject({
+      projectPath, settings: { model: 'mock:workspace-model', titleModel: 'mock:title-model', autoTitle: false, lane: { mode: 'current' } },
+    })
+    const created = await domain.createTask({ projectPath, title: 'Switch routing', prompt: 'Ask, then complete.', enqueue: true })
+    const task = created.document.tasks[0]!
+
+    await requested.promise
+    expect(adapter.requests.map(request => [request.provider, request.model])).toEqual([['mock', 'workspace-model']])
+
+    await domain.updateTask({ taskId: task.id, model: 'mock:switched-model' })
+    await new Promise(resolve => setTimeout(resolve, 400))
+    answer.resolve({ answers: [{ id: 'gate', selected: ['Continue'] }] })
+
+    await waitFor(async () => (await domain.readStore()).document.tasks[0]?.status === 'succeeded')
+    expect(adapter.requests.map(request => [request.provider, request.model])).toEqual([
+      ['mock', 'workspace-model'],
+      ['mock', 'switched-model'],
+      ['mock', 'switched-model'],
+    ])
+    const stored = await domain.readStore()
+    expect(stored.document.tasks[0]?.output?.summary).toBe('Completed after the model switch')
+    expect(stored.document.activities.some(entry => entry.kind === 'task-model-changed' && entry.taskId === task.id)).toBe(true)
+  })
 })

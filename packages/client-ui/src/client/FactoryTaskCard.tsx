@@ -21,7 +21,7 @@ import { FactoryModelSelect } from './FactoryModelSelect.tsx'
 import { FactorySelectMenu } from './FactorySelectMenu.tsx'
 import { FactoryTaskDiscussion } from './FactoryTaskDiscussion.tsx'
 import {
-  allowedTaskStatusTargets, PriorityPicker, priorityLabel, statusLabel, StatusPicker, TaskLabel,
+  allowedTaskStatusTargets, PriorityPicker, priorityLabel, statusLabel, StatusPicker, TaskLabel, TaskModelPicker,
 } from './FactoryTaskVisuals.tsx'
 import type { FactoryModelChoice, FactoryRemote } from './factory-client.ts'
 import css from './FactoryApp.module.css'
@@ -275,7 +275,17 @@ export function FactoryTaskCard({
               <div className={css.propertyRow}><span className={css.propertyIcon}><PriorityPicker priority={task.priority} counts={priorityCounts} disabled={task.activeRunId !== undefined} onChange={async priority => { await onUpdate({ taskId: task.id, priority, expectedRevision: snapshot.revision }) }} /></span><span>{priorityLabel(task.priority)}</span></div>
               <div className={css.propertyRow}><span className={css.propertyIcon}><Clock3 size={15} /></span><span>{automationSummary(task.automation)}</span></div>
               <div className={css.propertyRow}><span className={css.propertyIcon}><GitBranch size={15} /></span><span>{task.lane.mode}</span></div>
-              <div className={css.propertyRow}><span className={css.propertyIcon}><Bot size={15} /></span><span>{effectiveModelLabel}</span></div>
+              <div className={css.propertyRow}>
+                <span className={css.propertyIcon}>
+                  <TaskModelPicker
+                    value={effectiveModel}
+                    choices={modelChoices}
+                    disabled={busy}
+                    onChange={async next => { await onUpdate({ taskId: task.id, model: next, expectedRevision: snapshot.revision }) }}
+                  />
+                </span>
+                <span>{effectiveModelLabel}</span>
+              </div>
               <div className={css.propertyRow}><span className={css.propertyIcon}><MessageSquareText size={15} /></span>{sessionId === undefined || onOpenSession === undefined ? <span>{sessionId ?? 'No Session'}</span> : <button type="button" className={css.sessionLink} aria-label={`Open Session ${sessionId}`} title={`Open Session ${sessionId}`} onClick={onOpenSession}>{sessionId}</button>}</div>
             </div>
           </section>

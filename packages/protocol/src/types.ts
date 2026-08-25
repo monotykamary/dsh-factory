@@ -401,6 +401,7 @@ export interface FactoryUpdateTaskRequest extends FactoryMutationRequest {
   dependencyIds?: FactoryTaskId[]
   lane?: FactoryLaneSpec
   preset?: string
+  /** Routing-only field: may change while a run is active and takes effect on the next model step of a Live run. */
   model?: string
   automation?: FactoryAutomationSpec | null
 }

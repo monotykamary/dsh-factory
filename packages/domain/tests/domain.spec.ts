@@ -560,6 +560,29 @@ describe('FactoryDomain', () => {
     await expect(domain.connect({ taskId: task.id, dependsOnTaskId: other.id })).rejects.toThrow(/run is active/)
   })
 
+  it('switches the task model while a run is active without unlocking other fields', async () => {
+    const { domain, projectPath } = await fixture()
+    const created = await domain.createTask({ projectPath, title: 'Live routing', prompt: 'do the work', enqueue: true })
+    const task = created.document.tasks[0]!
+    await domain.acquireSchedulerLease(10_000)
+    const claim = (await domain.claimReadyTasks(1))[0]!
+    expect(claim.task.id).toBe(task.id)
+
+    const switched = await domain.updateTask({ taskId: task.id, model: 'mock:live-switch' })
+    const updated = switched.document.tasks[0]!
+    expect(updated).toMatchObject({ model: 'mock:live-switch', status: 'dispatching', activeRunId: claim.run.id })
+    expect(switched.document.activities.some(entry => entry.kind === 'task-model-changed' && entry.taskId === task.id)).toBe(true)
+
+    const cleared = await domain.updateTask({ taskId: task.id, model: '', expectedRevision: switched.revision })
+    expect(cleared.document.tasks[0]?.model).toBeUndefined()
+
+    await expect(domain.updateTask({ taskId: task.id, prompt: 'rewrite the assignment' })).rejects.toThrow(/run is active/u)
+    await expect(domain.updateTask({ taskId: task.id, title: 'Rename' })).rejects.toThrow(/run is active/u)
+    await expect(domain.updateTask({ taskId: task.id, model: 'mock:x', priority: 1 })).rejects.toThrow(/run is active/u)
+    await expect(domain.updateTask({ taskId: task.id, model: 'mock:x', dependencyIds: [] })).rejects.toThrow(/run is active/u)
+    expect((await domain.readStore()).document.tasks[0]?.model).toBeUndefined()
+  })
+
   it('sinks live Sessions as normal tasks, edits their graph, and creates a connected flow', async () => {
     const { domain, projectPath, store } = await fixture()
     const processId = FactoryProcessId('process:adoption')

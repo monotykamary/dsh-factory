@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { CSSProperties } from 'react'
-import { Check, Circle, CircleCheck, CircleDashed, CircleX, Clock3, Diamond, LoaderCircle, Menu, Pause, Square, Triangle, TriangleAlert } from '@monotykamary/dsh-client-ui-primitives'
+import { Bot, Check, Circle, CircleCheck, CircleDashed, CircleX, Clock3, Diamond, LoaderCircle, Menu, Pause, Square, Triangle, TriangleAlert } from '@monotykamary/dsh-client-ui-primitives'
 import {
   factoryRecurringLabel, orderTaskGraph, type FactoryPriority, type FactoryTask, type FactoryTaskStatus,
 } from 'dsh-factory-protocol'
@@ -72,6 +72,51 @@ export function PriorityPicker({ priority, counts, disabled = false, onChange }:
           onKeyDown={(event) => { event.stopPropagation() }}
         >
           <PriorityIcon priority={priority} size={17} />
+        </button>
+      )}
+    />
+  )
+}
+
+/** Icon-anchored task model selector that commits immediately, mirroring mid-conversation chat model switching. */
+export function TaskModelPicker({ value, choices, disabled = false, onChange }: {
+  value: string
+  choices: ReadonlyArray<{ id: string; label: string }>
+  disabled?: boolean
+  onChange: (model: string) => Promise<void>
+}) {
+  const [open, setOpen] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const labeled = choices.find(choice => choice.id === value)
+  const label = labeled?.label ?? value
+  return (
+    <Menu
+      open={open}
+      portal
+      compact
+      selectedId={value}
+      onClose={() => { setOpen(false) }}
+      onSelect={(id) => {
+        setOpen(false)
+        if (id === value) return
+        setBusy(true)
+        void onChange(id).finally(() => { setBusy(false) })
+      }}
+      items={[
+        ...choices.map(choice => ({ id: choice.id, icon: <Bot size={13} />, label: choice.label })),
+        ...(labeled === undefined ? [{ id: value, icon: <Bot size={13} />, label: value }] : []),
+      ]}
+      anchor={(
+        <button
+          type="button"
+          className={css.priorityTrigger}
+          disabled={disabled || busy}
+          aria-label={`Set task model: ${label}`}
+          title={label}
+          onClick={(event) => { event.stopPropagation(); setOpen(valueOpen => !valueOpen) }}
+          onKeyDown={(event) => { event.stopPropagation() }}
+        >
+          <Bot size={15} />
         </button>
       )}
     />

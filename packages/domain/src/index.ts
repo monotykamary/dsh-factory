@@ -575,12 +575,15 @@ export class FactoryDomain extends TypertRemoteService {
     return this.commit(request, (document, now) => {
       const task = expectTask(document, request.taskId)
       const flow = task.flowId === undefined ? undefined : document.flows.find(candidate => candidate.id === task.flowId)
-      const changesExecution = [request.title, request.description, request.prompt, request.priority, request.labels, request.lane, request.preset, request.model, request.automation]
+      const changesExecution = [request.title, request.description, request.prompt, request.priority, request.labels, request.lane, request.preset, request.automation]
         .some(value => value !== undefined)
-      if (task.activeRunId !== undefined && (flow?.kind !== 'inbox' || changesExecution)) throw new Error(`${task.identifier} cannot be edited while a run is active`)
+      // Model routing is not execution content: a model-only update may land mid-run and takes effect on the next model step.
+      const routesModelOnly = request.model !== undefined && request.dependencyIds === undefined && !changesExecution
+      if (task.activeRunId !== undefined && !routesModelOnly && (flow?.kind !== 'inbox' || changesExecution)) throw new Error(`${task.identifier} cannot be edited while a run is active`)
       if (flow?.kind === 'inbox' && request.dependencyIds?.some(id => expectTask(document, id).flowId !== flow.id) === true) {
         throw new Error('Emerging-work dependencies must stay in the same sink')
       }
+      const previousModel = task.model
       if (request.title !== undefined) task.title = request.title.trim()
       if (request.description !== undefined) task.description = request.description.trim()
       if (request.prompt !== undefined) task.prompt = request.prompt.trim()
@@ -609,6 +612,9 @@ export class FactoryDomain extends TypertRemoteService {
       task.updatedAt = now
       deriveFlows(document, now)
       activity(document, this.config.activityLimit, `${task.identifier} updated`, 'task-updated', now, task)
+      if (task.model !== previousModel) {
+        activity(document, this.config.activityLimit, `${task.identifier} model switched to ${task.model ?? 'the workspace default'}`, 'task-model-changed', now, task)
+      }
     })
   }
 

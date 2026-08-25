@@ -7,6 +7,7 @@ import {
   type FactorySnapshot, type FactoryTask,
 } from 'dsh-factory-protocol'
 import { FactoryTaskCard } from '../src/client/FactoryTaskCard.tsx'
+import type { FactoryModelChoice } from '../src/client/factory-client.ts'
 import { en } from '../src/client/locales.ts'
 
 afterEach(cleanup)
@@ -49,18 +50,20 @@ function renderCard(
     onSettle?: () => void
     onArchive?: () => Promise<void>
     onDelete?: (request: { taskId: FactoryTask['id']; expectedRevision?: number }) => Promise<void>
+    onUpdate?: (request: { taskId: FactoryTask['id']; model?: string; expectedRevision?: number }) => Promise<void>
+    choices?: readonly FactoryModelChoice[]
     linked?: boolean
   } = {},
 ) {
   const { snapshot, task } = fixture()
   configure?.(task, snapshot)
   return render(<FactoryTaskCard
-    task={task} snapshot={snapshot} modelChoices={[]} artifactApi={{ artifactMedia: vi.fn(async () => ({ ok: true as const, value: [] })), artifactMediaData: vi.fn() } as never} artifactRefreshToken={snapshot.generatedAt} sessionId={disposition.linked === false ? undefined : sessionId} t={t}
+    task={task} snapshot={snapshot} modelChoices={disposition.choices ?? []} artifactApi={{ artifactMedia: vi.fn(async () => ({ ok: true as const, value: [] })), artifactMediaData: vi.fn() } as never} artifactRefreshToken={snapshot.generatedAt} sessionId={disposition.linked === false ? undefined : sessionId} t={t}
     onBack={vi.fn()} onOpenSession={onOpenSession} onOpenSettings={vi.fn()}
     excludedDependencySessionIds={disposition.excluded ?? new Set()} sessionSettled={disposition.settled ?? false} sessionArchived={disposition.archived ?? false}
     onSettleSession={disposition.onSettle} onArchiveSession={disposition.onArchive}
     onDeleteTask={disposition.onDelete ?? vi.fn(async () => undefined)}
-    onUpdate={vi.fn(async () => undefined)} onAction={vi.fn(async () => undefined)}
+    onUpdate={disposition.onUpdate ?? vi.fn(async () => undefined)} onAction={vi.fn(async () => undefined)}
     onComment={vi.fn(async () => undefined)} onConnect={vi.fn(async () => undefined)}
     onAttach={vi.fn(async () => undefined)}
   />)
@@ -112,6 +115,24 @@ describe('Factory task Session navigation', () => {
 
     await waitFor(() => {
       expect(onDelete).toHaveBeenCalledWith({ taskId: FactoryTaskId('task:linked'), expectedRevision: 3 })
+    })
+  })
+
+  it('commits a task model change from the properties picker', async () => {
+    const onUpdate = vi.fn(async () => undefined)
+    renderCard(undefined, () => undefined, {
+      onUpdate,
+      choices: [
+        { id: 'mock:alpha', label: 'Alpha · Mock', provider: 'mock', model: 'alpha' },
+        { id: 'mock:beta', label: 'Beta · Mock', provider: 'mock', model: 'beta' },
+      ],
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Set task model: mock:model' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Beta · Mock' }))
+
+    await waitFor(() => {
+      expect(onUpdate).toHaveBeenCalledWith({ taskId: FactoryTaskId('task:linked'), model: 'mock:beta', expectedRevision: 3 })
     })
   })
 

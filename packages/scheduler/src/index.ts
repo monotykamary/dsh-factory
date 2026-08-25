@@ -1,4 +1,4 @@
-import type { Agent, AgentHandle, ModelSelection } from '@monotykamary/dsh-agent'
+import type { Agent, AgentHandle, ModelSelection, ModelSelectionRef } from '@monotykamary/dsh-agent'
 import { admitEncodedImages, type EncodedImageAttachment, type ImageMediaType } from '@monotykamary/dsh-attachment'
 import { installModelSelection } from '@monotykamary/dsh-agent'
 import type {} from '@monotykamary/dsh-agent-default-model'
@@ -54,6 +54,8 @@ interface ActiveRun {
   done: Promise<void>
   handle?: AgentHandle
   channel?: FactoryCompletionChannel
+  /** Live routing ref shared with the Agent; a task model change swaps the next model step. */
+  selection?: ModelSelectionRef
   lastError?: unknown
   notify: (() => void) | undefined
 }
@@ -232,6 +234,7 @@ class FactoryScheduler {
     const checkoutPath = await this.allocateCheckout(claim)
     if (claim.project.settings.setupCommand !== undefined) await this.runSetup(claim.project.settings.setupCommand, checkoutPath)
     const selection = this.selection(claim.task, claim.project)
+    const selectionRef: ModelSelectionRef = { current: selection, assembled: undefined }
     const presetId = claim.task.preset ?? this.ctx.agentPresets.defaultId
     let channel: FactoryCompletionChannel | undefined
     const handle = await this.ctx.agents.create({
@@ -240,7 +243,7 @@ class FactoryScheduler {
       agentOptions: { provider: selection.provider, model: selection.model },
       setup: async (agentCtx) => {
         await this.ctx.agentPresets.mount(agentCtx, presetId)
-        installModelSelection(agentCtx, { current: selection, assembled: undefined })
+        installModelSelection(agentCtx, selectionRef)
         await agentCtx.plugin(AskUserQuestionTool)
         channel = installFactoryCompletionTool(agentCtx)
       },
@@ -248,6 +251,7 @@ class FactoryScheduler {
     if (channel === undefined) throw new Error('Factory completion channel was not installed during Agent setup')
     active.handle = handle
     active.channel = channel
+    active.selection = selectionRef
     await this.ctx.factory.bindRun(claim.run.id, handle.agent.id, checkoutPath)
     handle.agent.followup(createUserMessage({
       content: await this.taskContent(claim),
@@ -300,6 +304,18 @@ class FactoryScheduler {
       if (task?.status === 'cancelled') {
         active.handle?.agent.cancel({ kind: 'user' })
         active.notify?.()
+        continue
+      }
+      if (task === undefined || active.selection === undefined) continue
+      const project = stored.document.projects.find(candidate => candidate.id === task.projectId)
+      if (project === undefined) continue
+      const next = this.selection(task, project)
+      const current = active.selection.current
+      if (current === undefined
+        || next.provider !== current.provider
+        || next.model !== current.model
+        || next.reasoningEffort !== current.reasoningEffort) {
+        active.selection.current = next
       }
     }
   }
