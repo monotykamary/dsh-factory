@@ -246,12 +246,6 @@ importers:
       '@monotykamary/dsh-agent-default-model':
         specifier: link:../../../deepseek-harness/packages/core/agent-default-model
         version: link:../../../deepseek-harness/packages/core/agent-default-model
-      '@monotykamary/dsh-agent-loop':
-        specifier: link:../../../deepseek-harness/packages/core/agent-loop
-        version: link:../../../deepseek-harness/packages/core/agent-loop
-      '@monotykamary/dsh-agent-loop-testkit':
-        specifier: link:../../../deepseek-harness/packages/test-support/agent-loop-testkit
-        version: link:../../../deepseek-harness/packages/test-support/agent-loop-testkit
       '@monotykamary/dsh-agent-presets':
         specifier: link:../../../deepseek-harness/packages/preset/agent-presets
         version: link:../../../deepseek-harness/packages/preset/agent-presets
@@ -297,6 +291,13 @@ importers:
       dsh-factory-tools:
         specifier: workspace:^
         version: link:../tools
+    devDependencies:
+      '@monotykamary/dsh-agent-loop':
+        specifier: link:../../../deepseek-harness/packages/core/agent-loop
+        version: link:../../../deepseek-harness/packages/core/agent-loop
+      '@monotykamary/dsh-agent-loop-testkit':
+        specifier: link:../../../deepseek-harness/packages/test-support/agent-loop-testkit
+        version: link:../../../deepseek-harness/packages/test-support/agent-loop-testkit
 
   packages/store:
     dependencies:

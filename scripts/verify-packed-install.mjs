@@ -37,6 +37,17 @@ function verifyCordisPeers() {
   if (failures.length > 0) throw new Error(`Factory Cordis declarations do not match the linked Harness package:\n${failures.join('\n')}`)
 }
 
+function verifyRuntimePeers() {
+  const failures = []
+  for (const directory of packageDirectories) {
+    const current = manifest(directory)
+    for (const name of Object.keys(current.peerDependencies ?? {})) {
+      if (name.endsWith('-testkit')) failures.push(`${current.name}: production peer ${name}`)
+    }
+  }
+  if (failures.length > 0) throw new Error(`Factory packages cannot publish testkit peers:\n${failures.join('\n')}`)
+}
+
 function run(command, args, options = {}) {
   const result = spawnSync(command, args, {
     cwd: options.cwd ?? root,
@@ -56,6 +67,7 @@ function run(command, args, options = {}) {
 
 function main() {
   verifyCordisPeers()
+  verifyRuntimePeers()
   const versions = new Set(packageDirectories.map(directory => manifest(directory).version))
   if (versions.size !== 1) throw new Error(`Factory packages must share one version, found: ${[...versions].join(', ')}`)
   const temporary = mkdtempSync(join(tmpdir(), 'dsh-factory-packed-'))
@@ -69,10 +81,18 @@ function main() {
     }
 
     const dependencies = {}
+    const hostDependencies = {}
     for (const filename of readdirSync(packed).filter(name => name.endsWith('.tgz')).sort()) {
       const tarball = resolve(packed, filename)
       const packedManifest = JSON.parse(execFileSync('tar', ['-xOzf', tarball, 'package/package.json'], { encoding: 'utf8' }))
       dependencies[packedManifest.name] = pathToFileURL(tarball).href
+      for (const [name, range] of Object.entries(packedManifest.peerDependencies ?? {})) {
+        const existing = hostDependencies[name]
+        if (existing !== undefined && existing !== range) {
+          throw new Error(`Factory packages disagree on peer ${name}: ${existing} and ${range}`)
+        }
+        hostDependencies[name] = range
+      }
     }
     if (Object.keys(dependencies).length !== packageDirectories.length) {
       throw new Error(`packed ${String(Object.keys(dependencies).length)} Factory packages, expected ${String(packageDirectories.length)}`)
@@ -82,7 +102,7 @@ function main() {
       name: 'dsh-factory-packed-consumer',
       version: '0.0.0',
       private: true,
-      dependencies,
+      dependencies: { ...hostDependencies, ...dependencies },
       overrides: Object.fromEntries(Object.keys(dependencies).map(name => [name, `$${name}`])),
     }, null, 2)}\n`)
     const environment = { ...process.env }

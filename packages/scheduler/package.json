@@ -28,8 +28,6 @@
     "@monotykamary/cordis": "^4.0.1",
     "@monotykamary/dsh-attachment": "^0.1.0-rc.11",
     "@monotykamary/dsh-agent": "^0.1.0-rc.11",
-    "@monotykamary/dsh-agent-loop": "^0.1.0-rc.11",
-    "@monotykamary/dsh-agent-loop-testkit": "^0.1.0-rc.11",
     "@monotykamary/dsh-agent-default-model": "^0.1.0-rc.11",
     "@monotykamary/dsh-agent-presets": "^0.1.0-rc.11",
     "@monotykamary/dsh-llm": "^0.1.0-rc.11",
