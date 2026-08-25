@@ -695,6 +695,53 @@ export class FactoryDomain extends TypertRemoteService {
     })
   }
 
+  /** Permanently delete one cancelled task with no linked Session or retained checkout. @param request - Task identity. @returns committed snapshot. */
+  @Remote
+  deleteTask(request: FactoryTaskActionRequest): Promise<FactorySnapshot> {
+    return this.commit(request, (document, now) => {
+      const task = expectTask(document, request.taskId)
+      if (task.status !== 'cancelled') throw new Error(`${task.identifier} can be deleted only after cancellation`)
+      if (task.activeRunId !== undefined) throw new Error(`${task.identifier} cannot be deleted while a run is active`)
+      const runs = document.runs.filter(run => run.taskId === task.id)
+      if (task.output?.sessionId !== undefined || runs.some(run => run.sessionId !== undefined)) {
+        throw new Error(`${task.identifier} has a linked Session and must be settled or archived instead`)
+      }
+      if (task.output?.checkoutPath !== undefined || runs.some(run => run.checkoutPath !== undefined)) {
+        throw new Error(`${task.identifier} has retained checkout history and cannot be deleted`)
+      }
+      const blockingDependent = document.tasks.find(candidate => candidate.dependencyIds.includes(task.id)
+        && ['scheduled', 'queued', 'dispatching', 'running', 'waiting'].includes(candidate.status))
+      if (blockingDependent !== undefined) {
+        throw new Error(`${task.identifier} cannot be deleted while ${blockingDependent.identifier} is ${blockingDependent.status}`)
+      }
+      const reuseDependent = document.tasks.find(candidate => candidate.lane.reuseTaskId === task.id)
+      if (reuseDependent !== undefined) throw new Error(`${task.identifier} cannot be deleted while ${reuseDependent.identifier} reuses its checkout`)
+
+      for (const dependent of document.tasks.filter(candidate => candidate.dependencyIds.includes(task.id))) {
+        dependent.dependencyIds = dependent.dependencyIds.filter(id => id !== task.id)
+        dependent.updatedAt = now
+      }
+      let removedFlowId: FactoryFlow['id'] | undefined
+      if (task.flowId !== undefined) {
+        const flow = document.flows.find(candidate => candidate.id === task.flowId)
+        if (flow === undefined) throw new Error(`${task.identifier} belongs to a missing flow`)
+        flow.taskIds = flow.taskIds.filter(id => id !== task.id)
+        flow.updatedAt = now
+        if (flow.kind === 'standard' && flow.taskIds.length === 0) {
+          removedFlowId = flow.id
+          document.flows = document.flows.filter(candidate => candidate.id !== flow.id)
+        }
+      }
+      document.tasks = document.tasks.filter(candidate => candidate.id !== task.id)
+      document.runs = document.runs.filter(run => run.taskId !== task.id)
+      document.metadataGenerations = document.metadataGenerations.filter(generation => generation.target.id !== task.id)
+      document.activities = document.activities.filter(entry => entry.taskId !== task.id
+        && (removedFlowId === undefined || entry.flowId !== removedFlowId))
+      deriveFlows(document, now)
+      activity(document, this.config.activityLimit, `${task.identifier} permanently deleted`, 'task-deleted', now)
+    })
+  }
+
   /** Retry terminal failed or cancelled work. @param request - Task identity. @returns committed snapshot. */
   @Remote
   retry(request: FactoryTaskActionRequest): Promise<FactorySnapshot> {
@@ -1174,7 +1221,7 @@ export class FactoryDomain extends TypertRemoteService {
     }
     return this.commit({}, (document, now) => {
       const receipt = document.metadataGenerations.find(candidate => candidate.id === generation.id)
-      if (receipt === undefined) throw new Error(`Factory metadata generation ${generation.id} does not exist`)
+      if (receipt === undefined) return FACTORY_STORE_NO_CHANGE
       receipt.updatedAt = now
       if (generated === undefined) {
         receipt.status = 'failed'

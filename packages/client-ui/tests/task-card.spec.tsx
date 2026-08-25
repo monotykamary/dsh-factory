@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import type { TranslateNS } from '@monotykamary/dsh-client-ui-slots'
 import {
   FactoryAttachmentId, FactoryProcessId, FactoryProjectId, FactoryRunId, FactoryTaskId, emptyFactoryDocument,
@@ -48,15 +48,18 @@ function renderCard(
     archived?: boolean
     onSettle?: () => void
     onArchive?: () => Promise<void>
+    onDelete?: (request: { taskId: FactoryTask['id']; expectedRevision?: number }) => Promise<void>
+    linked?: boolean
   } = {},
 ) {
   const { snapshot, task } = fixture()
   configure?.(task, snapshot)
   return render(<FactoryTaskCard
-    task={task} snapshot={snapshot} modelChoices={[]} artifactApi={{ artifactMedia: vi.fn(async () => ({ ok: true as const, value: [] })), artifactMediaData: vi.fn() } as never} artifactRefreshToken={snapshot.generatedAt} sessionId={sessionId} t={t}
+    task={task} snapshot={snapshot} modelChoices={[]} artifactApi={{ artifactMedia: vi.fn(async () => ({ ok: true as const, value: [] })), artifactMediaData: vi.fn() } as never} artifactRefreshToken={snapshot.generatedAt} sessionId={disposition.linked === false ? undefined : sessionId} t={t}
     onBack={vi.fn()} onOpenSession={onOpenSession} onOpenSettings={vi.fn()}
     excludedDependencySessionIds={disposition.excluded ?? new Set()} sessionSettled={disposition.settled ?? false} sessionArchived={disposition.archived ?? false}
     onSettleSession={disposition.onSettle} onArchiveSession={disposition.onArchive}
+    onDeleteTask={disposition.onDelete ?? vi.fn(async () => undefined)}
     onUpdate={vi.fn(async () => undefined)} onAction={vi.fn(async () => undefined)}
     onComment={vi.fn(async () => undefined)} onConnect={vi.fn(async () => undefined)}
     onAttach={vi.fn(async () => undefined)}
@@ -85,12 +88,31 @@ describe('Factory task Session navigation', () => {
   it('settles and archives the linked Session from task visibility controls', () => {
     const onSettle = vi.fn()
     const onArchive = vi.fn(async () => undefined)
-    renderCard(undefined, undefined, { onSettle, onArchive })
+    renderCard(undefined, (task) => { task.status = 'cancelled' }, { onSettle, onArchive })
 
+    expect(screen.queryByRole('button', { name: 'Delete task' })).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: 'Settle' }))
     fireEvent.click(screen.getByRole('button', { name: 'Archive' }))
     expect(onSettle).toHaveBeenCalledOnce()
     expect(onArchive).toHaveBeenCalledOnce()
+  })
+
+  it('permanently deletes a cancelled task without a linked Session after acknowledgement', async () => {
+    const onDelete = vi.fn(async () => undefined)
+    renderCard(undefined, (task) => { task.status = 'cancelled' }, { linked: false, onDelete })
+
+    expect(screen.queryByRole('button', { name: 'Settle' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Archive' })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Delete task' }))
+    const dialog = screen.getByRole('dialog', { name: 'Delete FAC-90?' })
+    const confirm = within(dialog).getByRole('button', { name: 'Delete permanently' })
+    expect((confirm as HTMLButtonElement).disabled).toBe(true)
+    fireEvent.click(within(dialog).getByRole('checkbox', { name: 'I understand this task has no Session history to preserve.' }))
+    fireEvent.click(confirm)
+
+    await waitFor(() => {
+      expect(onDelete).toHaveBeenCalledWith({ taskId: FactoryTaskId('task:linked'), expectedRevision: 3 })
+    })
   })
 
   it('omits terminal and settled tasks from dependency choices', () => {

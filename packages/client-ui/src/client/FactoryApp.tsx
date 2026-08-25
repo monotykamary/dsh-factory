@@ -300,6 +300,7 @@ export function FactoryApp({
         onOpenSettings={(path) => { navigation.openWork(); setSettingsPath(path); setTab('settings') }}
         onSettleSession={taskSessionKey === undefined || taskSessionSettled || taskSessionArchived ? undefined : () => { settleSession(taskSessionKey); navigation.openWork() }}
         onArchiveSession={taskSessionKey === undefined || taskSessionArchived ? undefined : async () => { await archiveSession(taskSessionKey); navigation.openWork() }}
+        onDeleteTask={async request => { await factory.mutate(() => api.deleteTask(request)) }}
         onUpdate={update}
         onComment={comment}
         onConnect={connect}

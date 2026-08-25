@@ -110,7 +110,7 @@ Recurring tasks return to **Scheduled** after every occurrence and retain each s
 
 ## Browser experience
 
-Work shows Emerging work first and then graph-ordered flows. Task detail combines properties, dependencies, schedule, model selection, run output, discussion, mutation receipts, and review media. Relationship rails move from neutral pending nodes to a blue running spinner, green completion check, or red abrupt-failure cross.
+Work shows Emerging work first and then graph-ordered flows. Task detail combines properties, dependencies, schedule, model selection, run output, discussion, mutation receipts, and review media. Linked Sessions can be settled or archived; cancelled tasks that never acquired a Session can be permanently deleted after explicit acknowledgement. Relationship rails move from neutral pending nodes to a blue running spinner, green completion check, or red abrupt-failure cross.
 
 Pasted images reuse the DSH attachment gallery and fullscreen lightbox. Task detail and exact-run Triage discover images and videos in the owning checkout's `.artifacts/` directory and open one keyboard-accessible carousel without copying media into Factory state.
 

@@ -423,7 +423,7 @@ export interface FactoryFlowActionRequest extends FactoryMutationRequest {
   flowId: FactoryFlowId
 }
 
-/** Generic task transition request. */
+/** Task identity plus optional optimistic revision for one lifecycle mutation. */
 export interface FactoryTaskActionRequest extends FactoryMutationRequest {
   taskId: FactoryTaskId
 }

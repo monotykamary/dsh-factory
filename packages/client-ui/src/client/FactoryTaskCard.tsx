@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
   Archive, Bot, Button, Check, ChevronLeft, ChevronRight, CircleCheck, CircleX, Clock3, GitBranch, MarkdownText,
-  MessageSquareText, Paperclip, Pause, Play, Settings, Undo2,
+  MessageSquareText, Paperclip, Pause, Play, RiskConfirmation, Settings, Trash2, Undo2,
 } from '@monotykamary/dsh-client-ui-primitives'
 import { ProducedFilesCard, type DeliverableChange } from '@monotykamary/dsh-client-ui-deliverables/client'
 import type { TranslateNS } from '@monotykamary/dsh-client-ui-slots'
@@ -44,6 +44,7 @@ interface Props {
   sessionArchived: boolean
   onSettleSession?: (() => void) | undefined
   onArchiveSession?: (() => Promise<void>) | undefined
+  onDeleteTask: (request: FactoryTaskActionRequest) => Promise<void>
   onUpdate: (request: FactoryUpdateTaskRequest) => Promise<void>
   onAction: (action: 'enqueue' | 'pause' | 'cancel' | 'retry', request: FactoryTaskActionRequest) => Promise<void>
   onComment: (request: FactoryCommentRequest) => Promise<void>
@@ -81,7 +82,7 @@ function actionForStatus(task: FactoryTask, status: FactoryTaskStatus): 'enqueue
 export function FactoryTaskCard({
   task, snapshot, modelChoices, artifactApi, artifactRunId, artifactRefreshToken, session, sessionId, t,
   onBack, onOpenSession, onOpenSettings, excludedDependencySessionIds, sessionSettled, sessionArchived,
-  onSettleSession, onArchiveSession, onUpdate, onAction, onComment, onConnect, onAttach,
+  onSettleSession, onArchiveSession, onDeleteTask, onUpdate, onAction, onComment, onConnect, onAttach,
 }: Props) {
   const project = snapshot.document.projects.find(candidate => candidate.id === task.projectId)
   const effectiveModel = task.model ?? project?.settings.model ?? snapshot.defaultModel
@@ -97,6 +98,8 @@ export function FactoryTaskCard({
   const [dependency, setDependency] = useState('')
   const [agent, setAgent] = useState('')
   const [busy, setBusy] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
+  const [deleteAcknowledged, setDeleteAcknowledged] = useState(false)
 
   useEffect(() => {
     if (editing) return
@@ -156,6 +159,28 @@ export function FactoryTaskCard({
 
   return (
     <div className={css.cardPage} data-testid="factory-task-card">
+      <RiskConfirmation
+        open={deleteOpen}
+        title={t('deleteTaskTitle', { identifier: task.identifier })}
+        description={t('deleteTaskDescription')}
+        acknowledgeLabel={t('deleteTaskAcknowledge')}
+        cancelLabel={t('deleteTaskCancel')}
+        confirmLabel={t('deleteTaskConfirm')}
+        acknowledged={deleteAcknowledged}
+        disabled={busy}
+        onAcknowledgedChange={setDeleteAcknowledged}
+        onCancel={() => {
+          if (busy) return
+          setDeleteOpen(false)
+          setDeleteAcknowledged(false)
+        }}
+        onConfirm={() => { void perform(async () => {
+          await onDeleteTask({ taskId: task.id, expectedRevision: snapshot.revision })
+          setDeleteOpen(false)
+          setDeleteAcknowledged(false)
+          onBack()
+        }) }}
+      />
       <header className={css.cardHeader}>
         <div className={css.cardBreadcrumb}>
           <Button variant="ghost" size="sm" icon={<ChevronLeft size={15} />} onClick={onBack}>{t('back')}</Button>
@@ -255,7 +280,7 @@ export function FactoryTaskCard({
             </div>
           </section>
 
-          {sessionId === undefined ? null : (
+          {sessionId !== undefined ? (
             <section className={css.propertySection}>
               <h2>{t('disposition')}</h2>
               <div className={css.taskDispositionActions}>
@@ -275,7 +300,21 @@ export function FactoryTaskCard({
                 >{sessionArchived ? t('archived') : t('archive')}</Button>
               </div>
             </section>
-          )}
+          ) : task.status === 'cancelled' ? (
+            <section className={css.propertySection}>
+              <h2>{t('disposition')}</h2>
+              <div className={css.taskDispositionActions}>
+                <Button
+                  className={css.deleteTaskButton}
+                  size="sm"
+                  variant="outline"
+                  icon={<Trash2 size={13} />}
+                  disabled={busy}
+                  onClick={() => { setDeleteAcknowledged(false); setDeleteOpen(true) }}
+                >{t('deleteTask')}</Button>
+              </div>
+            </section>
+          ) : null}
 
           <section className={css.propertySection}>
             <h2>Labels</h2>

@@ -1462,6 +1462,9 @@
   gap: 8px;
 }
 
+.deleteTaskButton { color: var(--dsw-alias-state-danger-primary); }
+.deleteTaskButton:hover { background: var(--dsw-alias-state-danger-tertiary); }
+
 .propertySection {
   display: flex;
   flex-direction: column;

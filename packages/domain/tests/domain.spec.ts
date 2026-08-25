@@ -137,6 +137,10 @@ describe('FactoryDomain', () => {
       'Inspect the workspace and repair the failing generated client.',
       'Queue an independent follow-up.',
     ])
+    const cancelled = await domain.cancel({ taskId: result.taskId, expectedRevision: next.snapshot.revision })
+    const deleted = await domain.deleteTask({ taskId: result.taskId, expectedRevision: cancelled.revision })
+    expect(deleted.document.tasks.map(candidate => candidate.id)).toEqual([next.taskId])
+    expect(deleted.document.flows[0]).toMatchObject({ kind: 'inbox', taskIds: [next.taskId], status: 'draft' })
     expect(inject).not.toHaveBeenCalled()
     list.mockRestore()
   })
@@ -305,6 +309,71 @@ describe('FactoryDomain', () => {
 
     await expect(domain.connect({ taskId: target.id, dependsOnTaskId: terminalTask.id })).rejects.toThrow(/terminal status cancelled/u)
     await expect(domain.updateTask({ taskId: target.id, dependencyIds: [terminalTask.id] })).rejects.toThrow(/terminal status cancelled/u)
+  })
+
+  it('permanently deletes a cancelled unlinked task and cleans its durable graph records', async () => {
+    const { domain, projectPath } = await fixture()
+    const sourceSnapshot = await domain.createTask({ projectPath, title: 'Disposable', prompt: 'discard', enqueue: true })
+    const source = sourceSnapshot.document.tasks[0]!
+    const targetSnapshot = await domain.createTask({
+      projectPath, title: 'Retained', prompt: 'retain', dependencyIds: [source.id], expectedRevision: sourceSnapshot.revision,
+    })
+    const target = targetSnapshot.document.tasks.find(task => task.title === 'Retained')!
+    const grouped = await domain.groupTasks({
+      taskIds: [source.id, target.id], title: 'Disposable flow', expectedRevision: targetSnapshot.revision,
+    })
+    await domain.acquireSchedulerLease(10_000)
+    const claim = (await domain.claimReadyTasks(1))[0]
+    expect(claim?.task.id).toBe(source.id)
+    expect(claim?.run.sessionId).toBeUndefined()
+    const claimed = await domain.readStore()
+    const cancelled = await domain.cancel({ taskId: source.id, expectedRevision: claimed.revision })
+
+    const deleted = await domain.deleteTask({ taskId: source.id, expectedRevision: cancelled.revision })
+
+    expect(deleted.document.tasks).toEqual([expect.objectContaining({ id: target.id, dependencyIds: [] })])
+    expect(deleted.document.runs).toHaveLength(0)
+    expect(deleted.document.flows).toEqual([
+      expect.objectContaining({ id: grouped.document.flows[0]?.id, taskIds: [target.id], status: 'draft' }),
+    ])
+    expect(deleted.document.activities.some(entry => entry.taskId === source.id)).toBe(false)
+    expect(deleted.document.activities).toContainEqual(expect.objectContaining({ kind: 'task-deleted', message: `${source.identifier} permanently deleted` }))
+
+    const targetCancelled = await domain.cancel({ taskId: target.id, expectedRevision: deleted.revision })
+    const emptied = await domain.deleteTask({ taskId: target.id, expectedRevision: targetCancelled.revision })
+    expect(emptied.document.tasks).toHaveLength(0)
+    expect(emptied.document.flows).toHaveLength(0)
+    expect(emptied.document.activities.some(entry => entry.flowId === grouped.document.flows[0]?.id)).toBe(false)
+  })
+
+  it('rejects task deletion before cancellation, behind runnable dependents, or after Session binding', async () => {
+    const { domain, projectPath } = await fixture()
+    let snapshot = await domain.createTask({ projectPath, title: 'Source', prompt: 'source' })
+    const source = snapshot.document.tasks[0]!
+    await expect(domain.deleteTask({ taskId: source.id })).rejects.toThrow(/only after cancellation/u)
+
+    snapshot = await domain.createTask({
+      projectPath, title: 'Runnable dependent', prompt: 'dependent', dependencyIds: [source.id], enqueue: true,
+      expectedRevision: snapshot.revision,
+    })
+    const dependent = snapshot.document.tasks.find(task => task.title === 'Runnable dependent')!
+    snapshot = await domain.cancel({ taskId: source.id, expectedRevision: snapshot.revision })
+    await expect(domain.deleteTask({ taskId: source.id })).rejects.toThrow(/cannot be deleted while .* is queued/u)
+    snapshot = await domain.cancel({ taskId: dependent.id, expectedRevision: snapshot.revision })
+    snapshot = await domain.deleteTask({ taskId: dependent.id, expectedRevision: snapshot.revision })
+    snapshot = await domain.deleteTask({ taskId: source.id, expectedRevision: snapshot.revision })
+
+    snapshot = await domain.createTask({
+      projectPath, title: 'Session-backed', prompt: 'bind a Session', enqueue: true, expectedRevision: snapshot.revision,
+    })
+    const linked = snapshot.document.tasks[0]!
+    await domain.acquireSchedulerLease(10_000)
+    const claim = (await domain.claimReadyTasks(1))[0]!
+    expect(claim.task.id).toBe(linked.id)
+    const bound = await domain.bindRun(claim.run.id, 'session:linked', projectPath)
+    const cancelled = await domain.cancel({ taskId: linked.id, expectedRevision: bound.revision })
+
+    await expect(domain.deleteTask({ taskId: linked.id, expectedRevision: cancelled.revision })).rejects.toThrow(/linked Session/u)
   })
 
   it('groups explicit standalone tasks and starts delayed stages atomically', async () => {
