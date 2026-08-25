@@ -1,6 +1,6 @@
 {
   "name": "dsh-factory-store",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "Factory persistence Service Definition",
   "type": "module",
   "license": "MIT",

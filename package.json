@@ -1,6 +1,6 @@
 {
   "name": "dsh-factory",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "Durable dependency-graph task factory for DeepSeek Harness",
   "type": "module",
   "license": "MIT",
