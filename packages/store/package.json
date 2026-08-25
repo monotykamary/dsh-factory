@@ -28,11 +28,11 @@
     "dsh-factory-protocol": "workspace:^"
   },
   "peerDependencies": {
-    "@monotykamary/cordis": "^4.3.2"
+    "@monotykamary/cordis": "^4.0.1"
   },
   "devDependencies": {
     "@monotykamary/dsh-typert-generator": "^0.1.0-rc.11",
-    "@monotykamary/cordis": "^4.3.2"
+    "@monotykamary/cordis": "^4.0.1"
   },
   "repository": {
     "type": "git",

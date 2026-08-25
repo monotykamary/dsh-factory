@@ -61,7 +61,7 @@
     "zod": "^4.3.6"
   },
   "peerDependencies": {
-    "@monotykamary/cordis": "^4.3.2",
+    "@monotykamary/cordis": "^4.0.1",
     "@monotykamary/dsh-api-gateway": "^0.1.0-rc.11",
     "@monotykamary/dsh-api-remotes": "^0.1.0-rc.11",
     "@monotykamary/dsh-client-connection": "^0.1.0-rc.11",
@@ -78,7 +78,7 @@
     "@monotykamary/dsh-typert-protocol": "^0.1.0-rc.11"
   },
   "devDependencies": {
-    "@monotykamary/cordis": "^4.3.2",
+    "@monotykamary/cordis": "^4.0.1",
     "@monotykamary/dsh-api-gateway": "^0.1.0-rc.11",
     "@monotykamary/dsh-api-remotes": "^0.1.0-rc.11",
     "@monotykamary/dsh-client-connection": "^0.1.0-rc.11",

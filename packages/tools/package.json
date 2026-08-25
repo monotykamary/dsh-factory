@@ -23,7 +23,7 @@
     "dsh-factory-protocol": "workspace:^"
   },
   "peerDependencies": {
-    "@monotykamary/cordis": "^4.3.2",
+    "@monotykamary/cordis": "^4.0.1",
     "@monotykamary/dsh-agent": "^0.1.0-rc.11",
     "@monotykamary/dsh-llm": "^0.1.0-rc.11",
     "@monotykamary/dsh-session": "^0.1.0-rc.11",
@@ -33,7 +33,7 @@
     "@monotykamary/dsh-tool-session-mutations": "^0.1.0-rc.11"
   },
   "devDependencies": {
-    "@monotykamary/cordis": "^4.3.2",
+    "@monotykamary/cordis": "^4.0.1",
     "@monotykamary/dsh-agent": "^0.1.0-rc.11",
     "@monotykamary/dsh-llm": "^0.1.0-rc.11",
     "@monotykamary/dsh-session": "^0.1.0-rc.11",

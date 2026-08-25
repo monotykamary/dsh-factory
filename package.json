@@ -39,8 +39,9 @@
     "build": "pnpm run clean && pnpm --filter dsh-factory-protocol run build && pnpm --filter dsh-factory-store run build && pnpm --filter dsh-factory-store-sqlite run build && pnpm --filter dsh-factory-tools run build && pnpm --filter dsh-factory-domain run build && pnpm --filter dsh-factory-scheduler run build && pnpm --filter dsh-factory-client-ui run build",
     "test": "vitest run",
     "test:e2e": "playwright test",
+    "verify:packed-install": "node scripts/verify-packed-install.mjs",
     "install:local": "node scripts/install-local.mjs",
-    "check": "pnpm run typecheck && pnpm run test"
+    "check": "pnpm run typecheck && pnpm run test && pnpm run verify:packed-install"
   },
   "devDependencies": {
     "@monotykamary/dsh-typert-generator": "^0.1.0-rc.11",

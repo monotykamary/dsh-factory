@@ -125,6 +125,6 @@ pnpm install
 pnpm run check
 ```
 
-Browser-facing changes additionally run `pnpm run test:e2e` against an assembled Factory Web profile. Local captures belong under `.artifacts/screenshots/` and are excluded from Git and npm.
+`pnpm run check` also packs all eight packages and installs them with standard npm, without legacy peer mode. Browser-facing changes additionally run `pnpm run test:e2e` against an assembled Factory Web profile. Local captures belong under `.artifacts/screenshots/` and are excluded from Git and npm.
 
 See [`docs/architecture.md`](docs/architecture.md) for durable authority, intake, metadata, scheduling, execution, Triage, cleanup, and browser-state ownership.

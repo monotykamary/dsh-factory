@@ -23,11 +23,11 @@
     "dsh-factory-store": "workspace:^"
   },
   "peerDependencies": {
-    "@monotykamary/cordis": "^4.3.2",
+    "@monotykamary/cordis": "^4.0.1",
     "@monotykamary/schemastery": "^3.17.1"
   },
   "devDependencies": {
-    "@monotykamary/cordis": "^4.3.2",
+    "@monotykamary/cordis": "^4.0.1",
     "@monotykamary/schemastery": "^3.17.1",
     "@types/node": "^22.20.0"
   },

@@ -25,7 +25,7 @@
     "@monotykamary/schemastery": "^3.17.1"
   },
   "peerDependencies": {
-    "@monotykamary/cordis": "^4.3.2",
+    "@monotykamary/cordis": "^4.0.1",
     "@monotykamary/dsh-attachment": "^0.1.0-rc.11",
     "@monotykamary/dsh-agent": "^0.1.0-rc.11",
     "@monotykamary/dsh-agent-loop": "^0.1.0-rc.11",
@@ -43,7 +43,7 @@
     "@monotykamary/dsh-tool-session-mutations": "^0.1.0-rc.11"
   },
   "devDependencies": {
-    "@monotykamary/cordis": "^4.3.2",
+    "@monotykamary/cordis": "^4.0.1",
     "@monotykamary/dsh-attachment": "^0.1.0-rc.11",
     "@monotykamary/dsh-agent": "^0.1.0-rc.11",
     "@monotykamary/dsh-agent-loop": "^0.1.0-rc.11",
