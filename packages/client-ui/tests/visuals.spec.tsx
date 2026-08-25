@@ -94,6 +94,12 @@ describe('Factory queue graph presentation', () => {
     expect(container.querySelector('[data-kind="parallel"] .lucide-triangle')).not.toBeNull()
     expect(container.querySelector('[data-kind="join"] .lucide-diamond')).not.toBeNull()
     expect(container.querySelector('[data-kind="finalizer"] .lucide-square')).not.toBeNull()
+    const branchLink = container.querySelector<HTMLElement>('[data-kind="parallel"] [data-segment="rail-link"]')
+    const joinLink = container.querySelector<HTMLElement>('[data-kind="join"] [data-segment="rail-link"]')
+    expect(branchLink?.style.getPropertyValue('--queue-link-x')).toBe('8px')
+    expect(branchLink?.style.getPropertyValue('--queue-link-width')).toBe('7px')
+    expect(joinLink?.style.getPropertyValue('--queue-link-x')).toBe('15px')
+    expect(joinLink?.style.getPropertyValue('--queue-link-width')).toBe('7px')
   })
 
   it('uses only the vertical spine for sequential and finalizer edges', () => {
@@ -218,6 +224,9 @@ describe('Factory queue graph presentation', () => {
     expect(nodes.map(node => getComputedStyle(node).backgroundColor)).toEqual([
       'rgba(0, 0, 0, 0)', 'rgba(0, 0, 0, 0)', 'rgba(0, 0, 0, 0)',
     ])
+    const interrupted = [...container.querySelectorAll<HTMLElement>('[data-under-node="true"]')]
+    expect(interrupted).toHaveLength(4)
+    expect(interrupted.every(segment => segment.dataset.lane === '0')).toBe(true)
   })
 
   it('renders isolated and singleton-root tasks without dangling segments', () => {

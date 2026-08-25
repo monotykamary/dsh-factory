@@ -221,6 +221,8 @@ export function TaskLabel({ label }: { label: string }) {
 type QueueGraphKind = 'independent' | 'root' | 'parallel' | 'join' | 'sequential' | 'finalizer'
 type QueueNodeState = 'pending' | 'running' | 'succeeded' | 'failed'
 
+const QUEUE_NODE_CLEARANCE_PX = 7
+
 interface QueueRailLink {
   from: number
   to: number
@@ -380,7 +382,10 @@ export function QueueGraphCell({ task, tasks }: {
   tasks: readonly FactoryTask[]
 }) {
   const graph = queueGraphPresentation(task, tasks)
-  const graphStyle = { '--queue-glyph-width': `${String(16 + graph.maxLane * 14)}px` } as CSSProperties
+  const graphStyle = {
+    '--queue-glyph-width': `${String(16 + graph.maxLane * 14)}px`,
+    '--queue-node-clearance': `${String(QUEUE_NODE_CLEARANCE_PX)}px`,
+  } as CSSProperties
   const railStyle = (lane: number): CSSProperties => ({ '--queue-x': `${String(8 + lane * 14)}px` } as CSSProperties)
   const stateIcon = graph.state === 'running'
     ? <LoaderCircle size={13} />
@@ -398,11 +403,17 @@ export function QueueGraphCell({ task, tasks }: {
   return (
     <span className={css.queueGraph} style={graphStyle} title={`${graph.label} · ${graph.detail} · ${statusLabel(task.status)}`}>
       <span className={css.queueGlyph} data-kind={graph.kind} data-state={graph.state} data-start={graph.start || undefined} data-node-lane={String(graph.nodeLane)}>
-        {graph.railBefore.map(lane => <span key={`before:${String(lane)}`} className={css.queueRailBefore} style={railStyle(lane)} data-segment="rail-before" data-lane={lane} />)}
-        {graph.railAfter.map(lane => <span key={`after:${String(lane)}`} className={css.queueRailAfter} style={railStyle(lane)} data-segment="rail-after" data-lane={lane} />)}
+        {graph.railBefore.map(lane => <span key={`before:${String(lane)}`} className={css.queueRailBefore} style={railStyle(lane)} data-segment="rail-before" data-lane={lane} data-under-node={lane === graph.nodeLane || undefined} />)}
+        {graph.railAfter.map(lane => <span key={`after:${String(lane)}`} className={css.queueRailAfter} style={railStyle(lane)} data-segment="rail-after" data-lane={lane} data-under-node={lane === graph.nodeLane || undefined} />)}
         {graph.links.map(link => {
           const start = Math.min(link.from, link.to)
-          const style = { '--queue-link-x': `${String(8 + start * 14)}px`, '--queue-link-width': `${String(Math.abs(link.to - link.from) * 14)}px` } as CSSProperties
+          const end = Math.max(link.from, link.to)
+          const startClearance = graph.nodeLane === start ? QUEUE_NODE_CLEARANCE_PX : 0
+          const endClearance = graph.nodeLane === end ? QUEUE_NODE_CLEARANCE_PX : 0
+          const style = {
+            '--queue-link-x': `${String(8 + start * 14 + startClearance)}px`,
+            '--queue-link-width': `${String((end - start) * 14 - startClearance - endClearance)}px`,
+          } as CSSProperties
           return <span key={`${String(link.from)}:${String(link.to)}`} className={css.queueRailLink} style={style} data-segment="rail-link" data-from={link.from} data-to={link.to} />
         })}
         <span className={css.queueNode} style={{ left: `${String(2 + graph.nodeLane * 14)}px` }} data-segment="node" data-lane={graph.nodeLane} data-state={graph.state}>{stateIcon}</span>

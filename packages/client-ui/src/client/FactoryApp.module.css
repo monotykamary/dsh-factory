@@ -679,6 +679,14 @@
   bottom: -1px;
 }
 
+.queueRailBefore[data-under-node='true'] {
+  height: calc(50% - var(--queue-node-clearance) + 1px);
+}
+
+.queueRailAfter[data-under-node='true'] {
+  top: calc(50% + var(--queue-node-clearance));
+}
+
 .queueRailLink {
   width: var(--queue-link-width);
   height: 1px;
