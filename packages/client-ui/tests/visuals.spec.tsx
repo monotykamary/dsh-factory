@@ -211,6 +211,13 @@ describe('Factory queue graph presentation', () => {
     expect(queueGraphPresentation(completed, graph)).toMatchObject({ state: 'succeeded' })
     expect(queueGraphPresentation(running, graph)).toMatchObject({ state: 'running' })
     expect(queueGraphPresentation(failed, graph)).toMatchObject({ state: 'failed' })
+
+    const { container } = render(<>{graph.map(item => <QueueGraphCell task={item} tasks={graph} key={item.id} />)}</>)
+    const nodes = [...container.querySelectorAll<HTMLElement>('[data-segment="node"]')]
+    expect(nodes).toHaveLength(graph.length)
+    expect(nodes.map(node => getComputedStyle(node).backgroundColor)).toEqual([
+      'rgba(0, 0, 0, 0)', 'rgba(0, 0, 0, 0)', 'rgba(0, 0, 0, 0)',
+    ])
   })
 
   it('renders isolated and singleton-root tasks without dangling segments', () => {
