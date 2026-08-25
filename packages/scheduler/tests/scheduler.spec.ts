@@ -420,4 +420,48 @@ describe('FactoryScheduler', () => {
     expect(stored.document.tasks[0]?.output?.summary).toBe('Completed after the model switch')
     expect(stored.document.activities.some(entry => entry.kind === 'task-model-changed' && entry.taskId === task.id)).toBe(true)
   })
+
+  it('auto retries a suddenly failing claim and recovers after the exponential backoff', async () => {
+    root = await mkdtemp(join(tmpdir(), 'dsh-factory-auto-retry-'))
+    const projectPath = join(root, 'repo')
+    await mkdir(projectPath)
+    const adapter = new ScriptedAdapter()
+    const { domain, shell } = await schedulerHarness(projectPath, adapter)
+    let setupCalls = 0
+    shell.run = (spec: ShellExecSpec): Promise<ShellRunResult> => {
+      shell.specs.push(spec)
+      setupCalls += 1
+      const failed = setupCalls === 1
+      return Promise.resolve({
+        exitCode: failed ? 1 : 0, signal: null, timedOut: false, aborted: false, timeoutMs: spec.timeoutMs,
+        stdout: { text: '', truncated: false },
+        stderr: { text: failed ? 'transient setup boom' : '', truncated: false },
+      })
+    }
+
+    await domain.updateProject({
+      projectPath,
+      settings: { model: 'mock:workspace-model', titleModel: 'mock:title-model', autoTitle: false, lane: { mode: 'current' }, setupCommand: 'pnpm install' },
+    })
+    await domain.createTask({
+      projectPath, title: 'Flaky setup', prompt: 'Recover after a transient setup failure.', enqueue: true,
+      retry: { maxRetries: 3, backoffMs: 1_000 },
+    })
+
+    await waitFor(async () => {
+      const storedNow = await domain.readStore()
+      return storedNow.document.tasks[0]?.status === 'queued' && storedNow.document.tasks[0]?.retryCount === 1
+    })
+    await waitFor(async () => (await domain.readStore()).document.tasks[0]?.status === 'succeeded')
+    const stored = await domain.readStore()
+    expect(setupCalls).toBe(2)
+    expect(stored.document.runs.map(run => [run.attempt, run.status])).toEqual([[1, 'failed'], [2, 'succeeded']])
+    expect(stored.document.runs[0]?.failure).toContain('Factory project setup failed')
+    expect(stored.document.tasks[0]?.output?.summary).toBe('Implemented and verified')
+    expect(stored.document.tasks[0]?.retryAt).toBeUndefined()
+    expect(stored.document.tasks[0]?.retryCount).toBeUndefined()
+    const backoffs = stored.document.activities.filter(entry => entry.kind === 'run-auto-retry')
+    expect(backoffs).toHaveLength(1)
+    expect(backoffs[0]?.message).toContain('automatic retry 1 of 3 queued in 1s')
+  })
 })

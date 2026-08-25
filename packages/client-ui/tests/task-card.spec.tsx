@@ -178,4 +178,26 @@ describe('Factory task Session navigation', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Next' }))
     expect(within(dialog).getByRole('img', { name: 'second.png' })).toBeTruthy()
   })
+
+  it('summarizes the resolved retry policy and commits task overrides from the properties rail', async () => {
+    const onUpdate = vi.fn(async () => undefined)
+    renderCard(undefined, (task) => { task.status = 'queued' }, { onUpdate, linked: false })
+
+    expect(screen.getByText(/Retries inherit workspace · 3 retries from 30s backoff/)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Set retry policy: Inherit workspace retry' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Do not retry' }))
+    await waitFor(() => {
+      expect(onUpdate).toHaveBeenCalledWith({ taskId: FactoryTaskId('task:linked'), expectedRevision: 3, retry: { enabled: false } })
+    })
+  })
+
+  it('shows the pending automatic retry time while the backoff gate is queued', () => {
+    renderCard(undefined, (task) => {
+      task.status = 'queued'
+      task.retryAt = '2026-08-24T12:00:30.000Z'
+      task.retryCount = 1
+    }, { linked: false })
+
+    expect(screen.getByText(/Retries inherit workspace/).textContent).toMatch(/· next /u)
+  })
 })

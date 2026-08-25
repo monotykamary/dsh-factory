@@ -1,7 +1,8 @@
 import {
+  FACTORY_RETRY_MAX_BACKOFF_MS, FACTORY_RETRY_MAX_RETRIES_LIMIT, FACTORY_RETRY_MIN_BACKOFF_MS,
   FactoryAttachmentId, FactoryCommentId, FactoryProcessId, FactoryProjectId, FactoryRunId, FactoryTaskId, deriveFlowStatus,
   type FactoryAttachment, type FactoryAttachmentInput, type FactoryAutomationSpec, type FactoryDocument, type FactoryFlow, type FactoryFlowId,
-  type FactoryIntakeId, type FactoryPriority, type FactoryProject, type FactoryRun, type FactoryTask, type FactoryTaskAutomation,
+  type FactoryIntakeId, type FactoryPriority, type FactoryProject, type FactoryRetrySpec, type FactoryRun, type FactoryTask, type FactoryTaskAutomation,
 } from 'dsh-factory-protocol'
 import { nextFactoryRecurringRun, normalizeFactoryRecurringSchedule } from './schedule.ts'
 
@@ -84,6 +85,23 @@ export function taskAutomation(spec: FactoryAutomationSpec, defaultEnabled: bool
   return { enabled, trigger: { kind: 'manual' } }
 }
 
+/** Validate and normalize one automatic retry specification. */
+export function retrySpec(spec: FactoryRetrySpec): FactoryRetrySpec {
+  const maxRetries = spec.maxRetries
+  const backoffMs = spec.backoffMs
+  if (maxRetries !== undefined && (!Number.isInteger(maxRetries) || maxRetries < 0 || maxRetries > FACTORY_RETRY_MAX_RETRIES_LIMIT)) {
+    throw new Error(`Factory retry attempts must be an integer from 0 to ${String(FACTORY_RETRY_MAX_RETRIES_LIMIT)}`)
+  }
+  if (backoffMs !== undefined && (!Number.isInteger(backoffMs) || backoffMs < FACTORY_RETRY_MIN_BACKOFF_MS || backoffMs > FACTORY_RETRY_MAX_BACKOFF_MS)) {
+    throw new Error(`Factory retry backoff must be an integer from ${String(FACTORY_RETRY_MIN_BACKOFF_MS)} to ${String(FACTORY_RETRY_MAX_BACKOFF_MS)} milliseconds`)
+  }
+  return {
+    ...(spec.enabled === undefined ? {} : { enabled: spec.enabled }),
+    ...(maxRetries === undefined ? {} : { maxRetries }),
+    ...(backoffMs === undefined ? {} : { backoffMs }),
+  }
+}
+
 /** Queue due task automations and advance recurring schedules without overlap. */
 export function activateTaskAutomations(document: FactoryDocument, now: string): { changed: boolean; activated: FactoryTask[] } {
   const nowMs = Date.parse(now)
@@ -136,6 +154,7 @@ export function addTask(document: FactoryDocument, input: {
   preset?: string
   model?: string
   automation?: FactoryAutomationSpec
+  retry?: FactoryRetrySpec
   attachments: FactoryAttachment[]
   enqueue: boolean
   now: string
@@ -146,6 +165,7 @@ export function addTask(document: FactoryDocument, input: {
   finalizerPolicy?: FactoryTask['finalizerPolicy']
 }): FactoryTask {
   const automation = input.automation === undefined ? undefined : taskAutomation(input.automation, input.enqueue, input.now)
+  const retry = input.retry === undefined ? undefined : retrySpec(input.retry)
   if (input.finalizer !== true && input.finalizerPolicy !== undefined) throw new Error('Factory finalizer policy requires a finalizer task')
   const task: FactoryTask = {
     id: FactoryTaskId(identity('task')), identifier: `FAC-${document.nextTaskNumber++}`, projectId: input.project.id,
@@ -157,6 +177,7 @@ export function addTask(document: FactoryDocument, input: {
     ...(input.preset === undefined || input.preset === '' ? {} : { preset: input.preset }),
     ...(input.model === undefined || input.model === '' ? {} : { model: input.model }),
     ...(automation === undefined ? {} : { automation }),
+    ...(retry === undefined ? {} : { retry }),
     ...(input.flowId === undefined ? {} : { flowId: input.flowId }),
     ...(input.intakeSessionId === undefined ? {} : { intakeSessionId: input.intakeSessionId }),
     ...(input.intakeId === undefined ? {} : { intakeId: input.intakeId }),
@@ -216,6 +237,7 @@ export function addRun(document: FactoryDocument, task: FactoryTask, processId: 
   task.activeRunId = run.id
   task.status = 'dispatching'
   delete task.failure
+  delete task.retryAt
   if (task.automation?.trigger.kind !== 'recurring') delete task.output
   task.updatedAt = now
   return run

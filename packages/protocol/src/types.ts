@@ -63,6 +63,46 @@ export type FactoryLaneMode = 'current' | 'isolated' | 'reuse'
 /** Finalizer eligibility after ordinary flow nodes settle. */
 export type FactoryFinalizerPolicy = 'success' | 'always'
 
+/** Automatic retry policy after a run fails abruptly. Task values win over workspace defaults. */
+export interface FactoryRetrySpec {
+  /** Opt out of automatic retries when false. */
+  enabled?: boolean
+  /** Automatic retries granted per failure streak; defaults to three. */
+  maxRetries?: number
+  /** Base delay in milliseconds, doubled after every consumed retry; defaults to thirty seconds. */
+  backoffMs?: number
+}
+
+/** Automatic retries granted by default when neither the task nor its workspace configure a policy. */
+export const DEFAULT_FACTORY_RETRY_MAX_RETRIES = 3
+/** Default base delay doubled after every consumed retry. */
+export const DEFAULT_FACTORY_RETRY_BACKOFF_MS = 30_000
+/** Maximum accepted automatic retries. */
+export const FACTORY_RETRY_MAX_RETRIES_LIMIT = 10
+/** Minimum accepted retry base delay. */
+export const FACTORY_RETRY_MIN_BACKOFF_MS = 1_000
+/** Maximum accepted retry base delay. */
+export const FACTORY_RETRY_MAX_BACKOFF_MS = 3_600_000
+
+/** Resolved automatic retry policy after applying workspace defaults. */
+export interface FactoryRetryPolicy {
+  maxRetries: number
+  backoffMs: number
+}
+
+/** Resolve one task's automatic retry policy; undefined when the task or its workspace opted out. */
+export function resolveFactoryRetry(
+  task: { retry?: FactoryRetrySpec },
+  settings: { retry?: FactoryRetrySpec },
+): FactoryRetryPolicy | undefined {
+  const enabled = task.retry?.enabled ?? settings.retry?.enabled ?? true
+  if (!enabled) return undefined
+  return {
+    maxRetries: task.retry?.maxRetries ?? settings.retry?.maxRetries ?? DEFAULT_FACTORY_RETRY_MAX_RETRIES,
+    backoffMs: task.retry?.backoffMs ?? settings.retry?.backoffMs ?? DEFAULT_FACTORY_RETRY_BACKOFF_MS,
+  }
+}
+
 /** Default instruction used to generate a task title. */
 export const DEFAULT_FACTORY_TITLE_PROMPT = 'Write a concise imperative task title of at most eight words in the prompt language.'
 /** Default instruction used to generate a task description. */
@@ -77,6 +117,8 @@ export interface FactoryProjectSettings {
   descriptionPrompt?: string
   lane: { mode: 'current' | 'isolated'; baseRef?: string }
   setupCommand?: string
+  /** Automatic retry defaults inherited by tasks; omission retries abruptly failed runs. */
+  retry?: FactoryRetrySpec
 }
 
 /** Repository identity and execution defaults shared by tasks. */
@@ -209,6 +251,12 @@ export interface FactoryTask {
   preset?: string
   model?: string
   automation?: FactoryTaskAutomation
+  /** Automatic retry policy overriding the workspace default. */
+  retry?: FactoryRetrySpec
+  /** Exponential backoff gate: a queued automatic retry cannot be claimed before this instant. */
+  retryAt?: string
+  /** Automatic retries already consumed by the current failure streak. */
+  retryCount?: number
   attachments: FactoryAttachment[]
   comments: FactoryComment[]
   activeRunId?: FactoryRunId
@@ -343,6 +391,8 @@ export interface FactoryCreateTaskRequest extends FactoryMutationRequest {
   model?: string
   attachments?: FactoryAttachmentInput[]
   automation?: FactoryAutomationSpec
+  /** Automatic retry policy; omission inherits the workspace default. */
+  retry?: FactoryRetrySpec
   finalizer?: boolean
   finalizerPolicy?: FactoryFinalizerPolicy
   enqueue?: boolean
@@ -404,6 +454,8 @@ export interface FactoryUpdateTaskRequest extends FactoryMutationRequest {
   /** Routing-only field: may change while a run is active and takes effect on the next model step of a Live run. */
   model?: string
   automation?: FactoryAutomationSpec | null
+  /** Automatic retry replacement, or null to inherit the workspace default again; takes effect at the next settlement. */
+  retry?: FactoryRetrySpec | null
 }
 
 /** One text and/or image discussion append. */

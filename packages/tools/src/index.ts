@@ -67,7 +67,7 @@ function managementProjection(snapshot: FactorySnapshot): object {
       id: task.id, identifier: task.identifier, projectId: task.projectId, flowId: task.flowId,
       title: task.title, description: task.description, prompt: task.prompt, status: task.status,
       priority: task.priority, labels: task.labels, dependencyIds: task.dependencyIds, lane: task.lane,
-      preset: task.preset, model: task.model, automation: task.automation, activeRunId: task.activeRunId,
+      preset: task.preset, model: task.model, automation: task.automation, retry: task.retry, activeRunId: task.activeRunId,
       attachmentNames: task.attachments.map(attachment => attachment.name), commentCount: task.comments.length,
       output: task.output === undefined ? undefined : {
         summary: task.output.summary, artifacts: task.output.artifacts, checkoutPath: task.output.checkoutPath,
@@ -82,9 +82,9 @@ function managementProjection(snapshot: FactorySnapshot): object {
 
 const FACTORY_SKILL = `# Factory operating guide
 
-Factory is a durable dependency graph, not a replacement for your current Session. Use factory_list before changing work you did not create; its revision, flow membership, task fields, recurring run history, and live Session ids support subsequent mutations. Ordinary tasks remain drafts unless enqueue is explicitly true. Their model, checkout, setup, title-generation policy, and metadata prompts inherit from workspace settings. Tasks become runnable only after all dependency tasks succeed. Recurring tasks remain Scheduled between occurrences and each terminal run appears unread in Triage. Checkout lanes serialize writers: current uses the project's main checkout, isolated creates a managed worktree, and reuse continues in a predecessor's checkout.
+Factory is a durable dependency graph, not a replacement for your current Session. Use factory_list before changing work you did not create; its revision, flow membership, task fields, recurring run history, and live Session ids support subsequent mutations. Ordinary tasks remain drafts unless enqueue is explicitly true. Their model, checkout, setup, title-generation policy, and metadata prompts inherit from workspace settings. Tasks become runnable only after all dependency tasks succeed. Abrupt run failures retry automatically with exponential backoff — three retries starting after thirty seconds by default — unless the workspace settings or the task retry policy opts out. Recurring tasks remain Scheduled between occurrences and each terminal run appears unread in Triage. Checkout lanes serialize writers: current uses the project's main checkout, isolated creates a managed worktree, and reuse continues in a predecessor's checkout.
 
-Use factory_update_project to set workspace models, metadata prompts, checkout, and setup policy. Use factory_create_task for durable standalone work instead of leaving an untracked TODO; omit title and description to generate them from the prompt. Build a sequential or parallel flow explicitly: create each task with dependency_ids, then call factory_create_flow with the relationship-complete task ids and a clear title. Use factory_start_flow for a grouped draft's atomic launch, factory_update_task to replace mutable fields or the complete dependency list, factory_attach_session to assign one observed Session, factory_adopt_sessions to sink live Sessions, factory_task to run now, pause, cancel, or retry, and factory_comment to add context. Hard deletion is intentionally unavailable: cancel work to preserve its audit history.
+Use factory_update_project to set workspace models, metadata prompts, checkout, setup, and automatic retry policy. Use factory_create_task for durable standalone work instead of leaving an untracked TODO; omit title and description to generate them from the prompt. Build a sequential or parallel flow explicitly: create each task with dependency_ids, then call factory_create_flow with the relationship-complete task ids and a clear title. Use factory_start_flow for a grouped draft's atomic launch, factory_update_task to replace mutable fields or the complete dependency list, factory_attach_session to assign one observed Session, factory_adopt_sessions to sink live Sessions, factory_task to run now, pause, cancel, or retry, and factory_comment to add context. Hard deletion is intentionally unavailable: cancel work to preserve its audit history.
 
 For recurring work, pass automation recurring and a five-field cron_expression to factory_create_task or factory_update_task. The task runs at local host time, returns to Scheduled after success or failure, and retains each result for Triage. When your Session owns a launched or adopted Factory run, call ask_user_question if a human answer or decision is required before the work is honestly complete. Its pending result keeps the assigned node nonterminal, so do not call factory_finish until the human answers; then use the answer in a later model step, continue, verify, and report exactly once. Use outcome blocked only when a direct question cannot resolve the intervention. Do not claim success from intent alone. Publishing and cleanup belong in explicit graph tasks and must never be smuggled into an implementation completion report.`
 
@@ -120,6 +120,7 @@ export function apply(ctx: Context): void {
       lane: { type: 'string', enum: ['current', 'isolated'], description: 'Checkout strategy; isolated is the safe default.' },
       base_ref: { type: 'string', description: 'Optional isolated checkout base ref.' },
       preset: { type: 'string' }, model: { type: 'string' },
+      auto_retry: { type: 'boolean', description: 'Opt out of automatic failure retries when false; omission inherits the workspace default.' },
       finalizer: { type: 'boolean', description: 'Marks cleanup or publish work that runs after ordinary flow tasks settle.' },
       finalizer_policy: { type: 'string', enum: ['success', 'always'] },
       expected_revision: { type: 'number' },
@@ -140,6 +141,7 @@ export function apply(ctx: Context): void {
         ...(args.labels === undefined ? {} : { labels: args.labels }),
         ...(args.preset === undefined ? {} : { preset: args.preset }), ...(args.model === undefined ? {} : { model: args.model }),
         ...(automation === undefined ? {} : { automation }),
+        ...(args.auto_retry === undefined ? {} : { retry: { enabled: args.auto_retry } }),
         ...(args.finalizer === undefined ? {} : { finalizer: args.finalizer }),
         ...(args.finalizer_policy === undefined ? {} : { finalizerPolicy: args.finalizer_policy }),
         ...(args.expected_revision === undefined ? {} : { expectedRevision: args.expected_revision }),
@@ -195,17 +197,24 @@ export function apply(ctx: Context): void {
       title_prompt: { type: 'string', description: 'Optional custom title instruction; empty resets the default.' },
       description_prompt: { type: 'string', description: 'Optional custom description instruction; empty resets the default.' },
       lane: { type: 'string', required: true, enum: ['current', 'isolated'] },
-      base_ref: { type: 'string' }, setup_command: { type: 'string' }, expected_revision: { type: 'number' },
+      base_ref: { type: 'string' }, setup_command: { type: 'string' },
+      auto_retry: { type: 'boolean', description: 'Optional workspace default opting in or out of automatic failure retries.' },
+      expected_revision: { type: 'number' },
     },
     output: textOutput,
     async execute(args, exec) {
       const cwd = exec.agent?.session.header.cwd
       if (cwd === undefined) throw new Error('factory_update_project requires a calling Agent with a workspace')
       if (args.lane !== 'isolated' && args.base_ref !== undefined) throw new Error('base_ref is valid only for an isolated lane')
+      const preservedRetry = args.auto_retry === undefined
+        ? (await ctx.factory.snapshot()).document.projects.find(candidate => candidate.mainPath === cwd)?.settings.retry
+        : undefined
       const snapshot = await ctx.factory.updateProject({
         projectPath: cwd,
         settings: {
           model: args.model, titleModel: args.title_model, autoTitle: args.auto_title,
+          ...(args.auto_retry === undefined ? {} : { retry: { enabled: args.auto_retry } }),
+          ...(preservedRetry === undefined ? {} : { retry: preservedRetry }),
           ...(args.title_prompt === undefined || args.title_prompt.trim() === '' ? {} : { titlePrompt: args.title_prompt }),
           ...(args.description_prompt === undefined || args.description_prompt.trim() === '' ? {} : { descriptionPrompt: args.description_prompt }),
           lane: { mode: args.lane, ...(args.base_ref === undefined || args.base_ref.trim() === '' ? {} : { baseRef: args.base_ref }) },
@@ -250,11 +259,12 @@ export function apply(ctx: Context): void {
       lane: { type: 'string', enum: ['current', 'isolated', 'reuse'] }, reuse_task_id: { type: 'string' }, base_ref: { type: 'string' },
       preset: { type: 'string' }, model: { type: 'string' },
       automation: { type: 'string', enum: ['none', 'manual', 'delay', 'schedule', 'recurring'] },
+      auto_retry: { type: 'string', enum: ['inherit', 'on', 'off'], description: 'Failure retry policy: inherit the workspace default, or opt this task in or out.' },
       delay_minutes: { type: 'number' }, run_at: { type: 'string' }, cron_expression: { type: 'string' }, expected_revision: { type: 'number' },
     },
     output: textOutput,
     async execute(args) {
-      const fields = [args.title, args.description, args.prompt, args.priority, args.labels, args.dependency_ids, args.lane, args.preset, args.model, args.automation]
+      const fields = [args.title, args.description, args.prompt, args.priority, args.labels, args.dependency_ids, args.lane, args.preset, args.model, args.automation, args.auto_retry]
       if (fields.every(value => value === undefined)) throw new Error('factory_update_task requires at least one mutable field')
       if (args.lane === undefined && (args.reuse_task_id !== undefined || args.base_ref !== undefined)) throw new Error('lane is required with reuse_task_id or base_ref')
       const automation = args.automation === 'none'
@@ -269,6 +279,7 @@ export function apply(ctx: Context): void {
         ...(args.lane === undefined ? {} : { lane: taskLane(args.lane, args.reuse_task_id, args.base_ref) }),
         ...(args.preset === undefined ? {} : { preset: args.preset }), ...(args.model === undefined ? {} : { model: args.model }),
         ...(automation === undefined ? {} : { automation }),
+        ...(args.auto_retry === undefined ? {} : { retry: args.auto_retry === 'inherit' ? null : { enabled: args.auto_retry === 'on' } }),
         ...(args.expected_revision === undefined ? {} : { expectedRevision: args.expected_revision }),
       })
       const task = snapshot.document.tasks.find(candidate => candidate.id === args.task_id)

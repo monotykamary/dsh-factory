@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
-import { Bot, Check, Circle, CircleCheck, CircleDashed, CircleX, Clock3, Diamond, LoaderCircle, Menu, Pause, Square, Triangle, TriangleAlert } from '@monotykamary/dsh-client-ui-primitives'
+import { Bot, Check, Circle, CircleCheck, CircleDashed, CircleX, Clock3, Diamond, LoaderCircle, Menu, Pause, Square, Triangle, TriangleAlert, Undo2 } from '@monotykamary/dsh-client-ui-primitives'
 import {
   factoryRecurringLabel, orderTaskGraph, type FactoryPriority, type FactoryTask, type FactoryTaskStatus,
 } from 'dsh-factory-protocol'
@@ -122,6 +122,51 @@ export function TaskModelPicker({ value, choices, disabled = false, onChange }: 
           onKeyDown={(event) => { event.stopPropagation() }}
         >
           <Bot size={15} />
+        </button>
+      )}
+    />
+  )
+}
+
+/** Icon-anchored task retry-policy selector that commits immediately, mirroring mid-run settlement edits. */
+export function TaskRetryPicker({ mode, disabled = false, onChange }: {
+  mode: 'inherit' | 'on' | 'off'
+  disabled?: boolean
+  onChange: (mode: 'inherit' | 'on' | 'off') => Promise<void>
+}) {
+  const [open, setOpen] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const label = mode === 'inherit' ? 'Inherit workspace retry' : mode === 'on' ? 'Automatically retry' : 'Do not retry'
+  return (
+    <Menu
+      open={open}
+      portal
+      compact
+      selectedId={mode}
+      onClose={() => { setOpen(false) }}
+      onSelect={(id) => {
+        setOpen(false)
+        const next = id as 'inherit' | 'on' | 'off'
+        if (next === mode) return
+        setBusy(true)
+        void onChange(next).finally(() => { setBusy(false) })
+      }}
+      items={[
+        { id: 'inherit', icon: <Undo2 size={13} />, label: 'Inherit workspace retry' },
+        { id: 'on', icon: <Undo2 size={13} />, label: 'Automatically retry' },
+        { id: 'off', icon: <CircleX size={13} />, label: 'Do not retry' },
+      ]}
+      anchor={(
+        <button
+          type="button"
+          className={css.priorityTrigger}
+          disabled={disabled || busy}
+          aria-label={`Set retry policy: ${label}`}
+          title={label}
+          onClick={(event) => { event.stopPropagation(); setOpen(value => !value) }}
+          onKeyDown={(event) => { event.stopPropagation() }}
+        >
+          <Undo2 size={15} />
         </button>
       )}
     />

@@ -60,8 +60,9 @@ export function validateTaskGraph(document: FactoryDocument): FactoryGraphIssue[
 }
 
 /** Determine whether a queued task may claim its lane now. */
-export function isTaskReady(task: FactoryTask, tasks: ReadonlyMap<FactoryTaskId, FactoryTask>): boolean {
+export function isTaskReady(task: FactoryTask, tasks: ReadonlyMap<FactoryTaskId, FactoryTask>, now: number = Date.now()): boolean {
   if (task.status !== 'queued') return false
+  if (task.retryAt !== undefined && Date.parse(task.retryAt) > now) return false
   if (!task.finalizer) return task.dependencyIds.every(id => tasks.get(id)?.status === 'succeeded')
   const flowTasks = task.flowId === undefined ? [] : [...tasks.values()].filter(candidate => candidate.flowId === task.flowId && !candidate.finalizer)
   if (!flowTasks.every(candidate => TERMINAL.has(candidate.status))) return false
@@ -79,9 +80,9 @@ function compareStableTasks(left: FactoryTask, right: FactoryTask): number {
 }
 
 /** Stable scheduling order: Linear priority, creation time, then identifier. */
-export function readyTasks(document: FactoryDocument): FactoryTask[] {
+export function readyTasks(document: FactoryDocument, now: number = Date.now()): FactoryTask[] {
   const tasks = new Map(document.tasks.map(task => [task.id, task]))
-  return document.tasks.filter(task => isTaskReady(task, tasks)).toSorted((left, right) =>
+  return document.tasks.filter(task => isTaskReady(task, tasks, now)).toSorted((left, right) =>
     factoryPriorityRank(left.priority) - factoryPriorityRank(right.priority) || compareStableTasks(left, right),
   )
 }

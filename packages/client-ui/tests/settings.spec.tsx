@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import type { WorkspaceView } from '@monotykamary/dsh-client-runtime/client'
 import {
   FactoryProjectId, emptyFactoryDocument, type FactoryProjectSettings, type FactorySnapshot,
@@ -111,5 +111,39 @@ describe('Factory settings under polling refreshes', () => {
 
     view.rerender(element(poll(snapshot(1)), { initialPath: '/repo' }))
     expect(screen.getByRole('button', { name: 'Settings workspace' }).textContent).toContain('Docs')
+  })
+
+  it('saves workspace retry attempts and backoff when enabled', async () => {
+    const onSave = vi.fn(async () => undefined)
+    render(element(snapshot(1), { onSave: onSave as never }))
+
+    const toggle = screen.getByRole('checkbox', { name: /Automatically retry failed runs/ }) as HTMLInputElement
+    expect(toggle.checked).toBe(true)
+    fireEvent.change(screen.getByLabelText('Retry attempts'), { target: { value: '5' } })
+    fireEvent.change(screen.getByLabelText('Initial backoff (seconds)'), { target: { value: '10' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save settings' }))
+
+    await waitFor(() => { expect(onSave).toHaveBeenCalledOnce() })
+    const request = onSave.mock.calls[0]?.[0] as { settings: { retry?: unknown } }
+    expect(request.settings.retry).toEqual({ enabled: true, maxRetries: 5, backoffMs: 10_000 })
+  })
+
+  it('opts the workspace out of automatic retries and defaults a save to the standard policy', async () => {
+    const onSave = vi.fn(async () => undefined)
+    const view = render(element(snapshot(1), { onSave: onSave as never }))
+
+    fireEvent.click(screen.getByRole('checkbox', { name: /Automatically retry failed runs/ }))
+    expect((screen.getByLabelText('Retry attempts') as HTMLInputElement).disabled).toBe(true)
+    fireEvent.click(screen.getByRole('button', { name: 'Save settings' }))
+    await waitFor(() => { expect(onSave).toHaveBeenCalledOnce() })
+    const request = onSave.mock.calls[0]?.[0] as { settings: { retry?: unknown } }
+    expect(request.settings.retry).toEqual({ enabled: false })
+
+    onSave.mockClear()
+    view.rerender(element(snapshot(2, { one: { model: 'mock:critic' } }), { onSave: onSave as never }))
+    fireEvent.click(screen.getByRole('button', { name: 'Save settings' }))
+    await waitFor(() => { expect(onSave).toHaveBeenCalledOnce() })
+    const requestDefault = onSave.mock.calls[0]?.[0] as { settings: { retry?: unknown } }
+    expect(requestDefault.settings.retry).toEqual({ enabled: true })
   })
 })

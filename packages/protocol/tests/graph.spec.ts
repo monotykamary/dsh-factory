@@ -154,6 +154,28 @@ describe('Factory graph', () => {
     expect(() => parseFactoryDocument({ ...document, patterns: [] })).toThrow()
   })
 
+  it('skips queued tasks until their automatic retry backoff elapses', () => {
+    const backoff = task('backoff', { retryAt: '2026-08-22T01:00:00.000Z', retryCount: 1 })
+    const document = { ...emptyFactoryDocument(), tasks: [backoff] }
+    expect(readyTasks(document, Date.parse('2026-08-22T00:30:00.000Z'))).toEqual([])
+    expect(readyTasks(document, Date.parse('2026-08-22T01:00:00.000Z')).map(value => value.id)).toEqual([backoff.id])
+  })
+
+  it('parses automatic retry policy and streak fields in durable documents', () => {
+    const document = emptyFactoryDocument()
+    document.projects.push({
+      id: projectId, title: 'Workspace', mainPath: '/workspace',
+      settings: { autoTitle: true, lane: { mode: 'isolated' }, retry: { enabled: false } },
+      createdAt: now, updatedAt: now,
+    })
+    document.tasks.push(task('retry', { retry: { enabled: true, maxRetries: 5, backoffMs: 60_000 }, retryAt: '2026-08-22T01:00:00.000Z', retryCount: 2 }))
+    expect(parseFactoryDocument(document).projects[0]?.settings.retry).toEqual({ enabled: false })
+    expect(parseFactoryDocument(document).tasks[0]).toMatchObject({ retry: { enabled: true, maxRetries: 5, backoffMs: 60_000 }, retryCount: 2 })
+    const excessive = structuredClone(document)
+    excessive.tasks[0]!.retry!.maxRetries = 11
+    expect(() => parseFactoryDocument(excessive)).toThrow()
+  })
+
   it('reports cycles, invalid finalizer edges, missing nodes, and cross-project edges', () => {
     const left = task('left', { dependencyIds: [FactoryTaskId('right')] })
     const right = task('right', { dependencyIds: [left.id], finalizer: true })

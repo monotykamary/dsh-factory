@@ -5,7 +5,7 @@ import AgentRegistry, { type Agent } from '@monotykamary/dsh-agent'
 import { Context } from '@monotykamary/cordis'
 import WorktreeRegistry, { type WorktreeProvider } from '@monotykamary/dsh-worktree'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { FactoryArtifactMediaId, FactoryIntakeId, FactoryProcessId } from 'dsh-factory-protocol'
+import { FactoryArtifactMediaId, FactoryIntakeId, FactoryProcessId, FactoryTaskId } from 'dsh-factory-protocol'
 import { SqliteFactoryStore } from 'dsh-factory-store-sqlite'
 import { FactoryDomain } from 'dsh-factory-domain'
 
@@ -628,5 +628,102 @@ describe('FactoryDomain', () => {
     await domain.requeueOrphanedRuns(new Set(), new Set(), 2)
     expect((await domain.readStore()).document.tasks[0]).toMatchObject({ status: 'failed', failure: expect.stringContaining('disappeared') })
     expect(first.run.id).not.toBe(second.run.id)
+  })
+
+  async function backdateRetry(store: Awaited<ReturnType<typeof fixture>>['store'], taskId: FactoryTaskId): Promise<void> {
+    await store.mutate(undefined, (document) => {
+      const task = document.tasks.find(candidate => candidate.id === taskId)
+      if (task?.retryAt === undefined) throw new Error('fixture expected a pending retry backoff')
+      task.retryAt = new Date(0).toISOString()
+    })
+  }
+
+  it('auto retries an abruptly failed run with exponential backoff and exhausts into terminal failure', async () => {
+    const { domain, projectPath, store } = await fixture()
+    const created = await domain.createTask({
+      projectPath, title: 'Flaky worker', prompt: 'recover', enqueue: true,
+      retry: { maxRetries: 2, backoffMs: 60_000 },
+    })
+    const taskId = created.document.tasks[0]!.id
+    await domain.acquireSchedulerLease(10_000)
+
+    const first = (await domain.claimReadyTasks(1))[0]!
+    expect(first.run.attempt).toBe(1)
+    const failedOnce = (await domain.failRun(first.run.id, new Error('agent crashed'))).document.tasks[0]!
+    expect(failedOnce).toMatchObject({ status: 'queued', retryCount: 1, failure: 'agent crashed' })
+    expect(Date.parse(failedOnce.retryAt!) - Date.parse(failedOnce.updatedAt)).toBe(60_000)
+    expect(await domain.claimReadyTasks(1)).toHaveLength(0)
+
+    await backdateRetry(store, taskId)
+    const second = (await domain.claimReadyTasks(1))[0]!
+    expect(second.run.attempt).toBe(2)
+    expect(second.task.retryAt).toBeUndefined()
+    const failedTwice = (await domain.failRun(second.run.id, new Error('agent crashed again'))).document.tasks[0]!
+    expect(failedTwice).toMatchObject({ status: 'queued', retryCount: 2 })
+    expect(Date.parse(failedTwice.retryAt!) - Date.parse(failedTwice.updatedAt)).toBe(120_000)
+
+    await backdateRetry(store, taskId)
+    const third = (await domain.claimReadyTasks(1))[0]!
+    const exhausted = (await domain.failRun(third.run.id, new Error('still crashing'))).document.tasks[0]!
+    expect(exhausted.status).toBe('failed')
+    expect(exhausted.retryAt).toBeUndefined()
+    expect(exhausted.retryCount).toBeUndefined()
+    const stored = (await domain.readStore()).document
+    expect(stored.runs.map(run => run.status)).toEqual(['failed', 'failed', 'failed'])
+    expect(stored.activities.filter(entry => entry.kind === 'run-auto-retry')).toHaveLength(2)
+  })
+
+  it('honors workspace and task automatic retry opt-outs and normalizes retry policy edits', async () => {
+    const { domain, projectPath } = await fixture()
+    await domain.updateProject({
+      projectPath, settings: { autoTitle: false, lane: { mode: 'current' }, retry: { enabled: false } },
+    })
+    const created = await domain.createTask({ projectPath, title: 'No retry', prompt: 'fail once', enqueue: true })
+    const taskId = created.document.tasks[0]!.id
+    await domain.acquireSchedulerLease(10_000)
+    const claim = (await domain.claimReadyTasks(1))[0]!
+    const failed = (await domain.failRun(claim.run.id, new Error('crash'))).document.tasks[0]!
+    expect(failed.status).toBe('failed')
+    expect(failed.retryAt).toBeUndefined()
+
+    const enabled = await domain.updateTask({ taskId, retry: { enabled: true, maxRetries: 1, backoffMs: 5_000 } })
+    expect(enabled.document.tasks[0]?.retry).toEqual({ enabled: true, maxRetries: 1, backoffMs: 5_000 })
+    const inherited = await domain.updateTask({ taskId, retry: null, expectedRevision: enabled.revision })
+    expect(inherited.document.tasks[0]?.retry).toBeUndefined()
+    await expect(domain.updateTask({ taskId, retry: { maxRetries: 11 } })).rejects.toThrow(/retry attempts/u)
+    await expect(domain.updateTask({ taskId, retry: { backoffMs: 500 } })).rejects.toThrow(/retry backoff/u)
+
+    const optedIn = await domain.updateTask({ taskId, retry: { enabled: true, backoffMs: 1_000 } })
+    const revived = await domain.retry({ taskId, expectedRevision: optedIn.revision })
+    expect(revived.document.tasks[0]?.status).toBe('queued')
+    const rerun = (await domain.claimReadyTasks(1))[0]!
+    const retried = (await domain.failRun(rerun.run.id, new Error('crash'))).document.tasks[0]!
+    expect(retried).toMatchObject({ status: 'queued', retryCount: 1 })
+  })
+
+  it('accepts a retry policy edit while a run is active and clears the streak on success', async () => {
+    const { domain, projectPath, store } = await fixture()
+    const created = await domain.createTask({ projectPath, title: 'Live policy', prompt: 'work', enqueue: true, retry: { backoffMs: 1_000 } })
+    const taskId = created.document.tasks[0]!.id
+    await domain.acquireSchedulerLease(10_000)
+    const claim = (await domain.claimReadyTasks(1))[0]!
+    const updated = await domain.updateTask({ taskId, retry: { enabled: false } })
+    expect(updated.document.tasks[0]).toMatchObject({ status: 'dispatching', retry: { enabled: false } })
+    const settled = (await domain.failRun(claim.run.id, new Error('crash'))).document.tasks[0]!
+    expect(settled.status).toBe('failed')
+    expect(settled.retryAt).toBeUndefined()
+
+    const chosen = await domain.updateTask({ taskId, retry: { enabled: true } })
+    await domain.retry({ taskId, expectedRevision: chosen.revision })
+    const rerun = (await domain.claimReadyTasks(1))[0]!
+    await domain.failRun(rerun.run.id, new Error('crash'))
+    expect((await domain.readStore()).document.tasks[0]?.retryCount).toBe(1)
+    await backdateRetry(store, taskId)
+    const finishing = (await domain.claimReadyTasks(1))[0]!
+    await domain.finishRun(finishing.run.id, { outcome: 'succeeded', summary: 'recovered', mutations: [] })
+    const done = (await domain.readStore()).document.tasks[0]!
+    expect(done.status).toBe('succeeded')
+    expect(done.retryAt).toBeUndefined()
+    expect(done.retryCount).toBeUndefined()
   })
 })

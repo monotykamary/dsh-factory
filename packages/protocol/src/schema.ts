@@ -18,6 +18,11 @@ const automationTrigger = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('recurring'), schedule: recurringSchedule }),
 ])
 const taskAutomation = z.object({ trigger: automationTrigger, enabled: z.boolean(), nextRunAt: z.string().datetime().optional() })
+const retrySpec = z.object({
+  enabled: z.boolean().optional(),
+  maxRetries: z.number().int().min(0).max(10).optional(),
+  backoffMs: z.number().int().min(1_000).max(3_600_000).optional(),
+})
 const lane = z.object({ mode: z.enum(['current', 'isolated', 'reuse']), reuseTaskId: id.optional(), baseRef: z.string().optional() })
 const attachment = z.object({ id, name: z.string(), mediaType: z.string(), dataUrl: z.string(), createdAt: timestamp })
 const comment = z.object({ id, author: z.enum(['user', 'agent', 'system']), body: z.string(), attachments: z.array(attachment).optional(), createdAt: timestamp })
@@ -28,6 +33,7 @@ const projectSettings = z.object({
   titlePrompt: z.string().min(1).max(4_000).optional(), descriptionPrompt: z.string().min(1).max(4_000).optional(),
   lane: z.object({ mode: z.enum(['current', 'isolated']), baseRef: z.string().min(1).optional() }),
   setupCommand: z.string().min(1).optional(),
+  retry: retrySpec.optional(),
 }).strict()
 const project = z.object({
   id, title: z.string(), mainPath: z.string(), repositoryId: z.string().optional(), defaultRef: z.string().optional(),
@@ -83,6 +89,7 @@ const task = z.object({
   labels: z.array(z.string()), dependencyIds: z.array(id), lane, finalizer: z.boolean(),
   intakeSessionId: z.string().min(1).optional(), intakeId: z.string().min(1).optional(),
   finalizerPolicy: z.enum(['success', 'always']).optional(), preset: z.string().optional(), model: z.string().optional(), automation: taskAutomation.optional(),
+  retry: retrySpec.optional(), retryAt: z.string().datetime().optional(), retryCount: z.number().int().min(1).optional(),
   attachments: z.array(attachment), comments: z.array(comment), activeRunId: id.optional(), output: output.optional(), failure: z.string().optional(),
   createdAt: timestamp, updatedAt: timestamp,
 })

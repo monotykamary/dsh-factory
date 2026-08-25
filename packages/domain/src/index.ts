@@ -8,7 +8,7 @@ import type {} from '@monotykamary/dsh-session-title'
 import type {} from '@monotykamary/dsh-worktree'
 import { Remote, TypertRemoteService } from '@monotykamary/dsh-typert-protocol'
 import z from '@monotykamary/schemastery'
-import { FactoryArtifactMediaId, FactoryFlowId, FactoryMetadataGenerationId, FactoryProcessId, readyTasks } from 'dsh-factory-protocol'
+import { FactoryArtifactMediaId, FactoryFlowId, FactoryMetadataGenerationId, FactoryProcessId, readyTasks, resolveFactoryRetry } from 'dsh-factory-protocol'
 import type {
   FactoryAdoptSessionsRequest, FactoryAgentObservation, FactoryArtifactMedia, FactoryArtifactMediaData, FactoryArtifactMediaDataRequest, FactoryArtifactMediaRequest, FactoryAttachSessionRequest, FactoryCommentRequest, FactoryConnectRequest,
   FactoryCreateTaskRequest, FactoryDocument, FactoryFlow, FactoryFlowActionRequest, FactoryGroupTasksRequest, FactoryMetadataGeneration,
@@ -19,7 +19,7 @@ import type {
 import { FACTORY_STORE_NO_CHANGE, type FactoryStoreRead } from 'dsh-factory-store'
 import {
   activateTaskAutomations, activity, addComment, addRun, addTask, attachments, deriveFlows,
-  ensureProject, expectProject, expectTask, identity, taskAutomation,
+  ensureProject, expectProject, expectTask, identity, retrySpec, taskAutomation,
 } from './mutations.ts'
 import {
   boundFactoryMetadataText, factoryMetadataRequest, fallbackFactoryMetadata, generateFactoryMetadata,
@@ -268,6 +268,7 @@ export class FactoryDomain extends TypertRemoteService {
         enqueue: request.enqueue ?? false, now,
         ...(request.preset === undefined ? {} : { preset: request.preset }), ...(request.model === undefined ? {} : { model: request.model }),
         ...(request.automation === undefined ? {} : { automation: request.automation }),
+        ...(request.retry === undefined ? {} : { retry: request.retry }),
         ...(request.finalizer === undefined ? {} : { finalizer: request.finalizer }),
         ...(request.finalizerPolicy === undefined ? {} : { finalizerPolicy: request.finalizerPolicy }),
       })
@@ -579,7 +580,10 @@ export class FactoryDomain extends TypertRemoteService {
         .some(value => value !== undefined)
       // Model routing is not execution content: a model-only update may land mid-run and takes effect on the next model step.
       const routesModelOnly = request.model !== undefined && request.dependencyIds === undefined && !changesExecution
-      if (task.activeRunId !== undefined && !routesModelOnly && (flow?.kind !== 'inbox' || changesExecution)) throw new Error(`${task.identifier} cannot be edited while a run is active`)
+      // Retry policy is settlement content: a retry-only update may land mid-run and takes effect at the next settlement.
+      const policyOnly = routesModelOnly
+        || (request.retry !== undefined && request.dependencyIds === undefined && !changesExecution)
+      if (task.activeRunId !== undefined && !policyOnly && (flow?.kind !== 'inbox' || changesExecution)) throw new Error(`${task.identifier} cannot be edited while a run is active`)
       if (flow?.kind === 'inbox' && request.dependencyIds?.some(id => expectTask(document, id).flowId !== flow.id) === true) {
         throw new Error('Emerging-work dependencies must stay in the same sink')
       }
@@ -607,6 +611,10 @@ export class FactoryDomain extends TypertRemoteService {
           delete task.failure
           delete task.output
         }
+      }
+      if (request.retry !== undefined) {
+        if (request.retry === null) delete task.retry
+        else task.retry = retrySpec(request.retry)
       }
       if (task.title.length === 0 || task.prompt.length === 0) throw new Error('Factory task title and prompt are required')
       task.updatedAt = now
@@ -661,6 +669,8 @@ export class FactoryDomain extends TypertRemoteService {
         delete task.output
         delete task.activeRunId
       } else if (task.status !== 'queued') throw new Error(`${task.identifier} cannot be queued from ${task.status}`)
+      delete task.retryAt
+      delete task.retryCount
       if (task.automation?.enabled === true && task.automation.trigger.kind !== 'recurring') { task.automation.enabled = false; delete task.automation.nextRunAt }
       task.updatedAt = now
       deriveFlows(document, now)
@@ -690,6 +700,8 @@ export class FactoryDomain extends TypertRemoteService {
       if (task.status === 'succeeded') throw new Error(`${task.identifier} is already complete`)
       task.status = 'cancelled'
       if (task.automation !== undefined) task.automation.enabled = false
+      delete task.retryAt
+      delete task.retryCount
       task.updatedAt = now
       if (task.activeRunId !== undefined) {
         const run = document.runs.find(candidate => candidate.id === task.activeRunId)
@@ -759,6 +771,8 @@ export class FactoryDomain extends TypertRemoteService {
       delete task.activeRunId
       delete task.failure
       delete task.output
+      delete task.retryAt
+      delete task.retryCount
       deriveFlows(document, now)
       activity(document, this.config.activityLimit, `${task.identifier} retried`, 'task-retried', now, task)
     })
@@ -847,7 +861,7 @@ export class FactoryDomain extends TypertRemoteService {
         if (task !== undefined) occupied.add(this.lanePath(document, task, run.checkoutPath))
       }
       const available = Math.max(0, limit - activeCount)
-      for (const task of readyTasks(document)) {
+      for (const task of readyTasks(document, Date.parse(now))) {
         if (claimed.length >= available) break
         const path = this.lanePath(document, task)
         if (occupied.has(path)) continue
@@ -909,6 +923,8 @@ export class FactoryDomain extends TypertRemoteService {
       task.status = recurring ? 'scheduled' : outcome
       task.updatedAt = now
       delete task.activeRunId
+      delete task.retryAt
+      delete task.retryCount
       if (outcome === 'succeeded') {
         task.output = {
           summary: report.summary, artifacts: report.artifacts ?? [], mutations: structuredClone(report.mutations), completedAt: now,
@@ -938,8 +954,29 @@ export class FactoryDomain extends TypertRemoteService {
       const task = expectTask(document, run.taskId)
       if (task.activeRunId !== run.id || !['dispatching', 'running', 'waiting'].includes(run.status)) return FACTORY_STORE_NO_CHANGE
       run.status = 'failed'; run.failure = failure; run.updatedAt = now; run.finishedAt = now
-      task.status = task.automation?.trigger.kind === 'recurring' && task.automation.enabled ? 'scheduled' : 'failed'; task.failure = failure; task.updatedAt = now
       delete task.activeRunId
+      task.failure = failure; task.updatedAt = now
+      const recurring = task.automation?.trigger.kind === 'recurring' && task.automation.enabled
+      if (recurring) {
+        task.status = 'scheduled'
+        delete task.retryAt
+        delete task.retryCount
+      } else {
+        // Abrupt failures requeue with exponential backoff unless the task or its workspace opted out.
+        const policy = resolveFactoryRetry(task, expectProject(document, task.projectId).settings)
+        const retryCount = task.retryCount ?? 0
+        if (policy !== undefined && retryCount < policy.maxRetries) {
+          const delayMs = policy.backoffMs * 2 ** retryCount
+          task.retryCount = retryCount + 1
+          task.retryAt = new Date(Date.parse(now) + delayMs).toISOString()
+          task.status = 'queued'
+          activity(document, this.config.activityLimit, `${task.identifier} automatic retry ${String(retryCount + 1)} of ${String(policy.maxRetries)} queued in ${String(Math.round(delayMs / 1_000))}s`, 'run-auto-retry', now, task)
+        } else {
+          task.status = 'failed'
+          delete task.retryAt
+          delete task.retryCount
+        }
+      }
       deriveFlows(document, now)
       activity(document, this.config.activityLimit, `${task.identifier} failed: ${failure}`, 'run-failed', now, task)
     })
@@ -1143,6 +1180,7 @@ export class FactoryDomain extends TypertRemoteService {
       ...(titleModel === undefined || titleModel === '' ? {} : { titleModel }),
       ...(titlePrompt === undefined || titlePrompt === '' ? {} : { titlePrompt }),
       ...(descriptionPrompt === undefined || descriptionPrompt === '' ? {} : { descriptionPrompt }),
+      ...(settings.retry === undefined ? {} : { retry: retrySpec(settings.retry) }),
       ...(setupCommand === undefined || setupCommand === '' ? {} : { setupCommand }),
     }
   }

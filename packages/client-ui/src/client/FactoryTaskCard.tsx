@@ -6,9 +6,10 @@ import {
 import { ProducedFilesCard, type DeliverableChange } from '@monotykamary/dsh-client-ui-deliverables/client'
 import type { TranslateNS } from '@monotykamary/dsh-client-ui-slots'
 import type { SessionFace } from '@monotykamary/dsh-client-runtime/client'
-import type {
-  FactoryAttachSessionRequest, FactoryCommentRequest, FactoryConnectRequest, FactorySnapshot, FactoryTask,
-  FactoryTaskActionRequest, FactoryTaskStatus, FactoryUpdateTaskRequest,
+import {
+  resolveFactoryRetry,
+  type FactoryAttachSessionRequest, type FactoryCommentRequest, type FactoryConnectRequest, type FactorySnapshot, type FactoryTask,
+  type FactoryTaskActionRequest, type FactoryTaskStatus, type FactoryUpdateTaskRequest,
 } from 'dsh-factory-protocol'
 import {
   AutomationSelect, RecurringScheduleEditor, automationMode, automationRecurringValue, automationScheduleValue, automationSpec, automationSummary,
@@ -21,7 +22,7 @@ import { FactoryModelSelect } from './FactoryModelSelect.tsx'
 import { FactorySelectMenu } from './FactorySelectMenu.tsx'
 import { FactoryTaskDiscussion } from './FactoryTaskDiscussion.tsx'
 import {
-  allowedTaskStatusTargets, PriorityPicker, priorityLabel, statusLabel, StatusPicker, TaskLabel, TaskModelPicker,
+  allowedTaskStatusTargets, PriorityPicker, priorityLabel, statusLabel, StatusPicker, TaskLabel, TaskModelPicker, TaskRetryPicker,
 } from './FactoryTaskVisuals.tsx'
 import type { FactoryModelChoice, FactoryRemote } from './factory-client.ts'
 import css from './FactoryApp.module.css'
@@ -126,6 +127,13 @@ export function FactoryTaskCard({
   for (const candidate of snapshot.document.tasks) statusCounts.set(candidate.status, (statusCounts.get(candidate.status) ?? 0) + 1)
   const labelOptions = [...new Set(snapshot.document.tasks.flatMap(candidate => candidate.labels))].toSorted((left, right) => left.localeCompare(right))
   const effectiveModelLabel = modelChoices.find(choice => choice.id === effectiveModel)?.label ?? effectiveModel
+  const retryMode: 'inherit' | 'on' | 'off' = task.retry === undefined ? 'inherit' : task.retry.enabled === false ? 'off' : 'on'
+  const retryPolicy = resolveFactoryRetry(task, project?.settings ?? {})
+  const retryDetail = retryPolicy === undefined
+    ? 'off'
+    : `${String(retryPolicy.maxRetries)} retries from ${String(retryPolicy.backoffMs / 1_000)}s backoff`
+  const retrySummary = retryMode === 'off' ? 'Retries off' : retryMode === 'on' ? `Retries on · ${retryDetail}` : `Retries inherit workspace · ${retryDetail}`
+  const pendingRetry = task.retryAt !== undefined && task.status === 'queued' ? ` · next ${new Date(task.retryAt).toLocaleString()}` : ''
   const activeRunComments = task.activeRunId !== undefined
     && ['dispatching', 'running', 'waiting'].includes(task.status)
   const taskMedia = useMemo<FactoryPreviewMedia[]>(() => task.attachments.map(attachment => ({
@@ -274,6 +282,12 @@ export function FactoryTaskCard({
               <div className={css.propertyRow}><span className={css.propertyIcon}><StatusPicker status={task.status} counts={statusCounts} allowed={allowedTaskStatusTargets(task)} onChange={async status => { await perform(() => onAction(actionForStatus(task, status), { taskId: task.id, expectedRevision: snapshot.revision })) }} /></span><span>{statusLabel(task.status)}</span></div>
               <div className={css.propertyRow}><span className={css.propertyIcon}><PriorityPicker priority={task.priority} counts={priorityCounts} disabled={task.activeRunId !== undefined} onChange={async priority => { await onUpdate({ taskId: task.id, priority, expectedRevision: snapshot.revision }) }} /></span><span>{priorityLabel(task.priority)}</span></div>
               <div className={css.propertyRow}><span className={css.propertyIcon}><Clock3 size={15} /></span><span>{automationSummary(task.automation)}</span></div>
+              <div className={css.propertyRow}>
+                <span className={css.propertyIcon}>
+                  <TaskRetryPicker mode={retryMode} disabled={busy} onChange={async next => { await onUpdate({ taskId: task.id, expectedRevision: snapshot.revision, retry: next === 'inherit' ? null : { enabled: next === 'on' } }) }} />
+                </span>
+                <span>{retrySummary}{pendingRetry}</span>
+              </div>
               <div className={css.propertyRow}><span className={css.propertyIcon}><GitBranch size={15} /></span><span>{task.lane.mode}</span></div>
               <div className={css.propertyRow}>
                 <span className={css.propertyIcon}>

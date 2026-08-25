@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Bot, Button, GitBranch, Settings } from '@monotykamary/dsh-client-ui-primitives'
+import { Bot, Button, GitBranch, Settings, Undo2 } from '@monotykamary/dsh-client-ui-primitives'
 import type { WorkspaceView } from '@monotykamary/dsh-client-runtime/client'
 import {
-  DEFAULT_FACTORY_DESCRIPTION_PROMPT, DEFAULT_FACTORY_TITLE_PROMPT,
+  DEFAULT_FACTORY_DESCRIPTION_PROMPT, DEFAULT_FACTORY_RETRY_BACKOFF_MS, DEFAULT_FACTORY_RETRY_MAX_RETRIES, DEFAULT_FACTORY_TITLE_PROMPT,
   type FactoryProjectSettings, type FactorySnapshot, type FactoryUpdateProjectRequest,
 } from 'dsh-factory-protocol'
 import type { FactoryModelChoice } from './factory-client.ts'
@@ -34,6 +34,9 @@ export function FactorySettings({ snapshot, workspaces, choices, modelError, ini
   const storedLane = project?.settings.lane.mode ?? 'isolated'
   const storedBaseRef = project?.settings.lane.baseRef ?? ''
   const storedSetupCommand = project?.settings.setupCommand ?? ''
+  const storedAutoRetry = project?.settings.retry?.enabled ?? true
+  const storedRetryMaxRetries = project?.settings.retry?.maxRetries ?? DEFAULT_FACTORY_RETRY_MAX_RETRIES
+  const storedRetryBackoffSeconds = Math.round((project?.settings.retry?.backoffMs ?? DEFAULT_FACTORY_RETRY_BACKOFF_MS) / 1_000)
   const [model, setModel] = useState(effectiveModel)
   const [titleModel, setTitleModel] = useState(project?.settings.titleModel ?? effectiveModel)
   const [autoTitle, setAutoTitle] = useState(project?.settings.autoTitle ?? true)
@@ -42,6 +45,9 @@ export function FactorySettings({ snapshot, workspaces, choices, modelError, ini
   const [lane, setLane] = useState<'current' | 'isolated'>(project?.settings.lane.mode ?? 'isolated')
   const [baseRef, setBaseRef] = useState(project?.settings.lane.baseRef ?? '')
   const [setupCommand, setSetupCommand] = useState(project?.settings.setupCommand ?? '')
+  const [autoRetry, setAutoRetry] = useState(storedAutoRetry)
+  const [retryMaxRetries, setRetryMaxRetries] = useState(storedRetryMaxRetries)
+  const [retryBackoffSeconds, setRetryBackoffSeconds] = useState(storedRetryBackoffSeconds)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string>()
 
@@ -60,6 +66,7 @@ export function FactorySettings({ snapshot, workspaces, choices, modelError, ini
   const seed = JSON.stringify([
     effectiveModel, storedTitleModel, storedAutoTitle, storedTitlePrompt,
     storedDescriptionPrompt, storedLane, storedBaseRef, storedSetupCommand,
+    storedAutoRetry, storedRetryMaxRetries, storedRetryBackoffSeconds,
   ])
   useEffect(() => {
     setModel(effectiveModel)
@@ -70,17 +77,29 @@ export function FactorySettings({ snapshot, workspaces, choices, modelError, ini
     setLane(storedLane)
     setBaseRef(storedBaseRef)
     setSetupCommand(storedSetupCommand)
+    setAutoRetry(storedAutoRetry)
+    setRetryMaxRetries(storedRetryMaxRetries)
+    setRetryBackoffSeconds(storedRetryBackoffSeconds)
     setError(undefined)
   }, [path, seed])
 
   const save = async (): Promise<void> => {
     if (path === '' || model === '' || titleModel === '') return
+    const retries = Number.isInteger(retryMaxRetries) ? Math.min(10, Math.max(0, retryMaxRetries)) : DEFAULT_FACTORY_RETRY_MAX_RETRIES
+    const backoffSeconds = Number.isInteger(retryBackoffSeconds) ? Math.min(3_600, Math.max(1, retryBackoffSeconds)) : DEFAULT_FACTORY_RETRY_BACKOFF_MS / 1_000
     const settings: FactoryProjectSettings = {
       model, titleModel, autoTitle,
       ...(titlePrompt.trim() === DEFAULT_FACTORY_TITLE_PROMPT ? {} : { titlePrompt: titlePrompt.trim() }),
       ...(descriptionPrompt.trim() === DEFAULT_FACTORY_DESCRIPTION_PROMPT ? {} : { descriptionPrompt: descriptionPrompt.trim() }),
       lane: { mode: lane, ...(lane === 'isolated' && baseRef.trim() !== '' ? { baseRef: baseRef.trim() } : {}) },
       ...(setupCommand.trim() === '' ? {} : { setupCommand: setupCommand.trim() }),
+      retry: autoRetry
+        ? {
+          enabled: true,
+          ...(retries === DEFAULT_FACTORY_RETRY_MAX_RETRIES && backoffSeconds * 1_000 === DEFAULT_FACTORY_RETRY_BACKOFF_MS
+            ? {} : { maxRetries: retries, backoffMs: backoffSeconds * 1_000 }),
+        }
+        : { enabled: false },
     }
     setBusy(true); setError(undefined)
     try { await onSave({ projectPath: path, settings, expectedRevision: snapshot.revision }) }
@@ -129,6 +148,15 @@ export function FactorySettings({ snapshot, workspaces, choices, modelError, ini
         </div>
         <label><span>Setup script</span><textarea value={setupCommand} onChange={event => { setSetupCommand(event.target.value) }} placeholder="pnpm install" /></label>
         <p className={css.settingsHint}>The setup script runs as the first command in each newly allocated Factory checkout.</p>
+      </section>
+      <section className={css.settingsSection}>
+        <div className={css.settingsSectionTitle}><Undo2 size={15} /><div><h3>Retries</h3><p>Abruptly failed runs requeue with exponential backoff unless disabled.</p></div></div>
+        <label className={css.settingsToggle}><input type="checkbox" checked={autoRetry} onChange={event => { setAutoRetry(event.target.checked) }} /><span><strong>Automatically retry failed runs</strong><small>Factory requeues a failed task instead of marking it failed right away.</small></span></label>
+        <div className={css.settingsGrid}>
+          <label><span>Retry attempts</span><input type="number" min={0} max={10} step={1} value={retryMaxRetries} disabled={!autoRetry} onChange={event => { const next = event.target.valueAsNumber; setRetryMaxRetries(Number.isNaN(next) ? 0 : next) }} /></label>
+          <label><span>Initial backoff (seconds)</span><input type="number" min={1} max={3600} step={1} value={retryBackoffSeconds} disabled={!autoRetry} onChange={event => { const next = event.target.valueAsNumber; setRetryBackoffSeconds(Number.isNaN(next) ? 1 : next) }} /></label>
+        </div>
+        <p className={css.settingsHint}>Each retry doubles the wait: the default is 3 retries after 30, 60, and 120 seconds.</p>
       </section>
       {error === undefined ? null : <div className={css.formError} role="alert">{error}</div>}
     </div>
