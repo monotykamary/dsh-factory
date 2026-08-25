@@ -128,6 +128,10 @@ export interface FactoryProject {
   mainPath: string
   repositoryId?: string
   defaultRef?: string
+  /** Stable uppercase key prefixing task identifiers, derived once from the project title. */
+  identifierPrefix?: string
+  /** Highest identifier number issued under the prefix; monotonic across task deletion. */
+  identifierCounter?: number
   settings: FactoryProjectSettings
   createdAt: string
   updatedAt: string

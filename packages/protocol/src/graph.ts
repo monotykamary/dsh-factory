@@ -1,5 +1,5 @@
 import type {
-  FactoryDocument, FactoryFlowStatus, FactoryGraphIssue, FactoryPriority, FactoryTask, FactoryTaskId, FactoryTaskStatus,
+  FactoryDocument, FactoryFlowStatus, FactoryGraphIssue, FactoryPriority, FactoryProject, FactoryTask, FactoryTaskId, FactoryTaskStatus,
 } from './types.ts'
 
 const TERMINAL = new Set<FactoryTaskStatus>(['succeeded', 'failed', 'cancelled'])
@@ -133,6 +133,59 @@ export function deriveFlowStatus(tasks: readonly FactoryTask[]): FactoryFlowStat
   if (tasks.some(task => ['dispatching', 'running'].includes(task.status))) return 'running'
   if (tasks.some(task => task.status === 'scheduled')) return 'scheduled'
   return 'queued'
+}
+
+/** Legacy document-wide identifier prefix kept for tasks created before project-scoped identifiers. */
+export const FACTORY_LEGACY_IDENTIFIER_PREFIX = 'FAC'
+
+/** Shape of every Factory task identifier, legacy and project-scoped alike. */
+export const FACTORY_TASK_IDENTIFIER_PATTERN = /^([A-Z][A-Z0-9]*)-([1-9]\d*)$/
+
+/** Split one task identifier into its project key prefix and per-prefix number. */
+export function parseFactoryTaskIdentifier(identifier: string): { prefix: string; number: number } | undefined {
+  const match = FACTORY_TASK_IDENTIFIER_PATTERN.exec(identifier)
+  if (match === null || match[1] === undefined || match[2] === undefined) return undefined
+  return { prefix: match[1], number: Number(match[2]) }
+}
+
+/** Derive an up-to-four-letter uppercase project key from a project title. */
+export function deriveProjectIdentifierPrefix(title: string): string {
+  const words = title.toUpperCase().split(/[^A-Z0-9]+/u).filter(Boolean)
+  if (words.length >= 2) {
+    const initials = words.slice(0, 4).map(word => word[0] ?? '').join('')
+    if (initials.length >= 2) return initials
+  }
+  return words.join('').slice(0, 4) || FACTORY_LEGACY_IDENTIFIER_PREFIX
+}
+
+/** Assign a collision-free identifier prefix to one project within its document. */
+export function ensureProjectIdentifierPrefix(document: FactoryDocument, project: FactoryProject): string {
+  if (project.identifierPrefix !== undefined) return project.identifierPrefix
+  const preferred = deriveProjectIdentifierPrefix(project.title)
+  const taken = new Set(document.projects.flatMap(candidate =>
+    candidate.id !== project.id && candidate.identifierPrefix !== undefined ? [candidate.identifierPrefix] : []))
+  let prefix = preferred
+  for (let suffix = 2; taken.has(prefix); suffix += 1) prefix = `${preferred}${String(suffix)}`
+  project.identifierPrefix = prefix
+  return prefix
+}
+
+/**
+ * Claim the next project-scoped task identifier and advance the per-project counter.
+ * Legacy FAC numbers keep their document-wide floor so historical identifiers never recur.
+ */
+export function claimTaskIdentifier(document: FactoryDocument, project: FactoryProject): string {
+  const prefix = ensureProjectIdentifierPrefix(document, project)
+  let highest = project.identifierCounter ?? 0
+  for (const task of document.tasks) {
+    const parsed = parseFactoryTaskIdentifier(task.identifier)
+    if (parsed !== undefined && parsed.prefix === prefix && parsed.number > highest) highest = parsed.number
+  }
+  if (prefix === FACTORY_LEGACY_IDENTIFIER_PREFIX) highest = Math.max(highest, document.nextTaskNumber - 1)
+  const next = highest + 1
+  project.identifierCounter = next
+  if (prefix === FACTORY_LEGACY_IDENTIFIER_PREFIX) document.nextTaskNumber = Math.max(document.nextTaskNumber, next + 1)
+  return `${prefix}-${String(next)}`
 }
 
 /** Compute the serialized checkout lane key for a task with a resolved path. */

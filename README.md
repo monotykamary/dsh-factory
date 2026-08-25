@@ -27,6 +27,7 @@ _From one prompt to a dependency-aware production line — with isolated checkou
 | 🛤️ | **Safe checkout lanes** | Current, isolated, and predecessor-reuse lanes over managed Git worktrees with dirty-work and live-Session protection. |
 | ⏰ | **One-shot + recurring schedules** | Delayed starts and Croner-backed recurrence with lease-safe activation and non-overlapping occurrences. |
 | 🔁 | **Automatic failure retries** | Abruptly failed runs requeue with exponential backoff — three retries starting at thirty seconds by default — with workspace and per-task opt-outs. |
+| 🏷️ | **Project-scoped identifiers** | Every workspace derives its own uppercase key with an independent counter — DOCS-3 beside SR-2 — so cross-project dependencies stay mistake-proof while legacy FAC numbers keep resolving. |
 | 💬 | **First-class discussion** | Posted prompts, steer messages, reorderable queued follow-ups, images, and Factory notes in one chronological feed. |
 | 🔎 | **Triage and artifacts** | Unread and failed run results, mutation receipts, plus images and videos discovered under each run's `.artifacts/` directory. |
 | ✨ | **White-glove intake** | A compact Task/Flow selector extends New Session instead of duplicating its Workspace, model, permission, attachment, and draft controls. |

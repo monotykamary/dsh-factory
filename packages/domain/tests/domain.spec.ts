@@ -53,8 +53,8 @@ describe('FactoryDomain', () => {
   it('creates canonical projects and rejects stale browser revisions', async () => {
     const { domain, projectPath } = await fixture()
     const created = await domain.createTask({ projectPath, title: 'Implement', prompt: 'Change code', model: 'mock:task-model', enqueue: true, expectedRevision: 0 })
-    expect(created.document.projects[0]).toMatchObject({ title: 'Fixture', mainPath: projectPath, repositoryId: 'repository:fixture', defaultRef: 'main' })
-    expect(created.document.tasks[0]).toMatchObject({ identifier: 'FAC-1', status: 'queued', lane: { mode: 'isolated' }, model: 'mock:task-model' })
+    expect(created.document.projects[0]).toMatchObject({ title: 'Fixture', identifierPrefix: 'FIXT', identifierCounter: 1, mainPath: projectPath, repositoryId: 'repository:fixture', defaultRef: 'main' })
+    expect(created.document.tasks[0]).toMatchObject({ identifier: 'FIXT-1', status: 'queued', lane: { mode: 'isolated' }, model: 'mock:task-model' })
     const task = created.document.tasks[0]
     if (task === undefined) throw new Error('created task is missing')
     const commented = await domain.comment({
@@ -65,6 +65,9 @@ describe('FactoryDomain', () => {
       body: '', attachments: [expect.objectContaining({ name: 'pasted.png', mediaType: 'image/png' })],
     })
     await expect(domain.createTask({ projectPath, title: 'Stale', prompt: 'No', expectedRevision: 0 })).rejects.toThrow(/revision conflict/)
+    const followUp = await domain.createTask({ projectPath, title: 'Follow-up', prompt: 'second task', enqueue: false })
+    expect(followUp.document.tasks.map(value => value.identifier)).toEqual(['FIXT-1', 'FIXT-2'])
+    expect(followUp.document.projects[0]).toMatchObject({ identifierCounter: 2 })
   })
 
   it('automatically sinks a published live Agent without a browser mutation', async () => {

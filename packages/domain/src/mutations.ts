@@ -2,7 +2,7 @@ import {
   FACTORY_RETRY_MAX_BACKOFF_MS, FACTORY_RETRY_MAX_RETRIES_LIMIT, FACTORY_RETRY_MIN_BACKOFF_MS,
   FactoryAttachmentId, FactoryCommentId, FactoryProcessId, FactoryProjectId, FactoryRunId, FactoryTaskId, deriveFlowStatus,
   type FactoryAttachment, type FactoryAttachmentInput, type FactoryAutomationSpec, type FactoryDocument, type FactoryFlow, type FactoryFlowId,
-  type FactoryIntakeId, type FactoryPriority, type FactoryProject, type FactoryRetrySpec, type FactoryRun, type FactoryTask, type FactoryTaskAutomation,
+  claimTaskIdentifier, type FactoryIntakeId, type FactoryPriority, type FactoryProject, type FactoryRetrySpec, type FactoryRun, type FactoryTask, type FactoryTaskAutomation,
 } from 'dsh-factory-protocol'
 import { nextFactoryRecurringRun, normalizeFactoryRecurringSchedule } from './schedule.ts'
 
@@ -168,7 +168,7 @@ export function addTask(document: FactoryDocument, input: {
   const retry = input.retry === undefined ? undefined : retrySpec(input.retry)
   if (input.finalizer !== true && input.finalizerPolicy !== undefined) throw new Error('Factory finalizer policy requires a finalizer task')
   const task: FactoryTask = {
-    id: FactoryTaskId(identity('task')), identifier: `FAC-${document.nextTaskNumber++}`, projectId: input.project.id,
+    id: FactoryTaskId(identity('task')), identifier: claimTaskIdentifier(document, input.project), projectId: input.project.id,
     title: input.title.trim(), description: input.description.trim(), prompt: input.prompt.trim(),
     status: automation?.trigger.kind === 'recurring' && automation.enabled ? 'scheduled' : input.enqueue && automation === undefined ? 'queued' : 'draft',
     priority: input.priority, labels: [...new Set(input.labels.map(label => label.trim()).filter(Boolean))], dependencyIds: [...new Set(input.dependencyIds)],

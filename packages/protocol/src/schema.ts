@@ -37,6 +37,7 @@ const projectSettings = z.object({
 }).strict()
 const project = z.object({
   id, title: z.string(), mainPath: z.string(), repositoryId: z.string().optional(), defaultRef: z.string().optional(),
+  identifierPrefix: z.string().regex(/^[A-Z][A-Z0-9]{0,7}$/u).optional(), identifierCounter: z.number().int().positive().optional(),
   settings: projectSettings, createdAt: timestamp, updatedAt: timestamp,
 }).strict()
 const metadataGeneration = z.object({

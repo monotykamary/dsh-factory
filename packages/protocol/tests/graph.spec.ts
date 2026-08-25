@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
   FactoryFlowId, FactoryIntakeId, FactoryMetadataGenerationId, FactoryProcessId, FactoryProjectId, FactoryRunId, FactoryTaskId,
-  deriveFlowStatus, emptyFactoryDocument, factoryRecurringCron, factoryRecurringLabel, isTaskReady, orderTaskGraph,
-  parseFactoryDocument, readyTasks, validateTaskGraph, type FactoryTask,
+  claimTaskIdentifier, deriveFlowStatus, deriveProjectIdentifierPrefix, emptyFactoryDocument, factoryRecurringCron, factoryRecurringLabel,
+  isTaskReady, orderTaskGraph, parseFactoryDocument, parseFactoryTaskIdentifier, readyTasks, validateTaskGraph, type FactoryProject, type FactoryTask,
 } from '../src/index.ts'
 
 const now = '2026-08-22T00:00:00.000Z'
@@ -183,5 +183,66 @@ describe('Factory graph', () => {
     const missing = task('missing', { dependencyIds: [FactoryTaskId('absent')] })
     const codes = validateTaskGraph({ ...emptyFactoryDocument(), tasks: [left, right, cross, missing] }).map(issue => issue.code)
     expect(codes).toEqual(expect.arrayContaining(['cycle', 'finalizer-dependency', 'cross-project', 'missing-dependency']))
+  })
+})
+
+function project(id: string, title: string): FactoryProject {
+  return {
+    id: FactoryProjectId(id), title, mainPath: `/${id}`,
+    settings: { autoTitle: true, lane: { mode: 'isolated' } }, createdAt: now, updatedAt: now,
+  }
+}
+
+describe('Factory task identifiers', () => {
+  it('parses legacy and project-scoped identifiers into prefix and number', () => {
+    expect(parseFactoryTaskIdentifier('FAC-21')).toEqual({ prefix: 'FAC', number: 21 })
+    expect(parseFactoryTaskIdentifier('DOCS-3')).toEqual({ prefix: 'DOCS', number: 3 })
+    expect(parseFactoryTaskIdentifier('fac-3')).toBeUndefined()
+    expect(parseFactoryTaskIdentifier('DOCS-0')).toBeUndefined()
+    expect(parseFactoryTaskIdentifier('DOCS')).toBeUndefined()
+  })
+
+  it('derives a short uppercase key from each project title', () => {
+    expect(deriveProjectIdentifierPrefix('docs')).toBe('DOCS')
+    expect(deriveProjectIdentifierPrefix('my cool new project')).toBe('MCNP')
+    expect(deriveProjectIdentifierPrefix('super repository')).toBe('SR')
+    expect(deriveProjectIdentifierPrefix('superproject')).toBe('SUPE')
+    expect(deriveProjectIdentifierPrefix('   ')).toBe('FAC')
+  })
+
+  it('issues identifiers per project with independent counters that survive task deletion', () => {
+    const document = emptyFactoryDocument()
+    const first = project('project:one', 'Docs')
+    const second = project('project:two', 'Demo')
+    document.projects.push(first, second)
+    expect(claimTaskIdentifier(document, first)).toBe('DOCS-1')
+    expect(claimTaskIdentifier(document, first)).toBe('DOCS-2')
+    expect(claimTaskIdentifier(document, second)).toBe('DEMO-1')
+    document.tasks.push(task('docs-one', { identifier: 'DOCS-1' }), task('docs-two', { identifier: 'DOCS-2' }))
+    document.tasks = document.tasks.filter(candidate => candidate.identifier !== 'DOCS-2')
+    expect(claimTaskIdentifier(document, first)).toBe('DOCS-3')
+    expect(first).toMatchObject({ identifierPrefix: 'DOCS', identifierCounter: 3 })
+    expect(second).toMatchObject({ identifierPrefix: 'DEMO', identifierCounter: 1 })
+  })
+
+  it('bumps the prefix when two project titles derive the same key', () => {
+    const document = emptyFactoryDocument()
+    const one = project('project:one', 'Docs')
+    const two = project('project:two', 'docs mirror')
+    document.projects.push(one, two)
+    expect(claimTaskIdentifier(document, one)).toBe('DOCS-1')
+    expect(claimTaskIdentifier(document, two)).toBe('DM-1')
+    const three = project('project:three', 'Docs')
+    document.projects.push(three)
+    expect(claimTaskIdentifier(document, three)).toBe('DOCS2-1')
+  })
+
+  it('continues the legacy FAC pool beyond the document counter instead of reusing numbers', () => {
+    const document = { ...emptyFactoryDocument(), nextTaskNumber: 21 }
+    const legacy = project('project:legacy', 'fast api core')
+    document.projects.push(legacy)
+    expect(claimTaskIdentifier(document, legacy)).toBe('FAC-21')
+    expect(document.nextTaskNumber).toBe(22)
+    expect(claimTaskIdentifier(document, legacy)).toBe('FAC-22')
   })
 })
