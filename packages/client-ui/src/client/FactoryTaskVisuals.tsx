@@ -1,10 +1,15 @@
-import { useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { Bot, Check, Circle, CircleCheck, CircleDashed, CircleX, Clock3, Diamond, LoaderCircle, Menu, Pause, Square, Triangle, TriangleAlert } from '@monotykamary/dsh-client-ui-primitives'
 import {
   factoryRecurringLabel, orderTaskGraph, type FactoryPriority, type FactoryTask, type FactoryTaskStatus,
 } from 'dsh-factory-protocol'
 import css from './FactoryApp.module.css'
+import {
+  LABEL_GAP_PX, LABEL_OVERFLOW_CHROME_PX, LABEL_PILL_CHROME_PX, LABEL_TEXT_CAP_PX, LABEL_TEXT_FLOOR_PX,
+  planLabelFlow, truncateLabelText, type FlowLabelEntry, type LabelFlowPlan,
+} from './label-flow.ts'
+import { createPretextTextMeasure, type TextMeasure } from './label-measure.ts'
 
 /** Linear-compatible priority options in menu order. */
 export const FACTORY_PRIORITY_OPTIONS: ReadonlyArray<{ value: FactoryPriority; label: string }> = [
@@ -259,8 +264,96 @@ function dependencySignature(task: FactoryTask, memberIds: ReadonlySet<FactoryTa
 }
 
 /** Linear-style neutral label pill with one deterministic semantic dot. */
-export function TaskLabel({ label }: { label: string }) {
-  return <span className={css.taskLabel}><i data-tone={labelTone(label)} />{label}</span>
+export function TaskLabel({ label, display }: { label: string; display?: string }) {
+  const text = display ?? label
+  return <span className={css.taskLabel} title={text === label ? undefined : label}><i data-tone={labelTone(label)} />{text}</span>
+}
+
+/** Reserve enough room for any realistic `+N` counter while capping oversized labels. */
+const OVERFLOW_RESERVE_PX = 34
+
+/**
+ * Free-flowing row labels: pills keep their natural width, as many whole pills as fit are
+ * disclosed, and the remainder collapses into a `+N` counter. Widths come from pretext's
+ * canvas measurement, so no pill is ever clipped mid-word by the grid.
+ */
+export function TaskLabels({ labels }: { labels: readonly string[] }) {
+  const rootRef = useRef<HTMLSpanElement | null>(null)
+  const [pillEl, setPillEl] = useState<HTMLElement | null>(null)
+  const [width, setWidth] = useState(0)
+  const [fontVersion, setFontVersion] = useState(0)
+
+  useLayoutEffect(() => {
+    const root = rootRef.current
+    if (root === null) return
+    const measured = Math.floor(root.clientWidth)
+    setWidth(current => (current === measured ? current : measured))
+    const pill = root.firstElementChild
+    if (pill instanceof HTMLElement) setPillEl(current => current ?? pill)
+  }, [labels])
+
+  useEffect(() => {
+    const root = rootRef.current
+    if (root === null || typeof ResizeObserver === 'undefined') return undefined
+    const observer = new ResizeObserver((entries) => {
+      const next = Math.floor(entries[0]?.contentRect.width ?? 0)
+      setWidth(current => (current === next ? current : next))
+    })
+    observer.observe(root)
+    return () => { observer.disconnect() }
+  }, [])
+
+  useEffect(() => {
+    if (typeof document === 'undefined' || document.fonts === undefined) return undefined
+    let live = true
+    void document.fonts.ready.then(() => { if (live) setFontVersion(value => value + 1) })
+    return () => { live = false }
+  }, [])
+
+  const measure = useMemo<TextMeasure | null | undefined>(() => {
+    if (pillEl === null || typeof getComputedStyle === 'undefined') return undefined
+    try {
+      const style = getComputedStyle(pillEl)
+      const spacing = style.letterSpacing.endsWith('px') ? Number.parseFloat(style.letterSpacing) : 0
+      return createPretextTextMeasure(`${style.fontWeight} ${style.fontSize} ${style.fontFamily}`, Number.isFinite(spacing) ? spacing : 0)
+    } catch {
+      return null
+    }
+    // fontVersion invalidates the canvas cache once late webfonts finish loading
+  }, [pillEl, fontVersion])
+
+  const plan = useMemo<LabelFlowPlan | undefined>(() => {
+    if (measure == null || width <= 0 || labels.length === 0) return undefined
+    const cap = Math.min(LABEL_TEXT_CAP_PX, Math.max(LABEL_TEXT_FLOOR_PX, Math.floor(width - LABEL_PILL_CHROME_PX - LABEL_GAP_PX - OVERFLOW_RESERVE_PX)))
+    const entries: FlowLabelEntry[] = labels.map((label) => {
+      const fitted = truncateLabelText(label, cap, measure)
+      return { label, text: fitted?.text ?? label, width: (fitted?.width ?? measure(label)) + LABEL_PILL_CHROME_PX }
+    })
+    return planLabelFlow(
+      entries,
+      width,
+      LABEL_GAP_PX,
+      hidden => measure(`+${String(hidden)}`) + LABEL_OVERFLOW_CHROME_PX,
+      (entry, maxWidth) => {
+        const fitted = truncateLabelText(entry.label, maxWidth - LABEL_PILL_CHROME_PX, measure)
+        return fitted === null ? null : { ...entry, text: fitted.text, width: fitted.width + LABEL_PILL_CHROME_PX }
+      },
+    )
+  }, [labels, width, measure])
+
+  // Overflow pill shares .taskLabel chrome so the counter matches the pills it stands in for.
+  const overflow = plan === undefined || plan.hidden.length === 0 ? null : (
+    <span className={css.taskLabel} title={plan.hidden.join(', ')}>{`+${String(plan.hidden.length)}`}</span>
+  )
+  const style = plan === undefined && measure !== null && labels.length > 0 ? { visibility: 'hidden' } as const : undefined
+  return (
+    <span ref={rootRef} className={css.taskLabels} data-flow={plan === undefined ? undefined : 'measured'} style={style}>
+      {plan === undefined
+        ? labels.map(label => <TaskLabel key={label} label={label} />)
+        : plan.visible.map(entry => <TaskLabel key={entry.label} label={entry.label} display={entry.text} />)}
+      {overflow}
+    </span>
+  )
 }
 
 type QueueGraphKind = 'independent' | 'root' | 'parallel' | 'join' | 'sequential' | 'finalizer'

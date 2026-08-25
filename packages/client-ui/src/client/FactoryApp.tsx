@@ -18,7 +18,7 @@ import { FactoryTaskCard } from './FactoryTaskCard.tsx'
 import { FactoryTriage } from './FactoryTriage.tsx'
 import { type FactoryRemote, useFactory, useFactoryModels } from './factory-client.ts'
 import type { FactoryNavigation } from './factory-intake.ts'
-import { allowedTaskStatusTargets, PriorityPicker, QueueGraphCell, StatusPicker, TaskLabel } from './FactoryTaskVisuals.tsx'
+import { allowedTaskStatusTargets, PriorityPicker, QueueGraphCell, StatusPicker, TaskLabels } from './FactoryTaskVisuals.tsx'
 import css from './FactoryApp.module.css'
 
 /** Dynamic dependencies injected into the Factory root surface before renderer binding. */
@@ -72,7 +72,7 @@ function TaskRow({ task, graphTasks, project, priorityCounts, statusCounts, onOp
       <StatusPicker status={task.status} counts={statusCounts} allowed={allowedStatuses} onChange={onStatus} />
       <button type="button" className={css.taskRowOpen} onClick={onOpen}>
         <span className={css.taskTitle}>{task.title}</span>
-        <span className={css.taskLabels}>{task.labels.slice(0, 3).map(label => <TaskLabel label={label} key={label} />)}</span>
+        <TaskLabels labels={task.labels} />
         <span className={`${css.taskMeta} ${css.projectMeta}`}>{project}</span>
         <span className={`${css.taskMeta} ${css.laneMeta}`}><GitBranch size={12} />{task.lane.mode}</span>
         <QueueGraphCell task={task} tasks={graphTasks} />

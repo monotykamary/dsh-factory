@@ -394,7 +394,7 @@
   min-width: 0;
   align-self: stretch;
   display: grid;
-  grid-template-columns: minmax(170px, 1fr) fit-content(220px) fit-content(150px) fit-content(96px) minmax(126px, 152px) 16px;
+  grid-template-columns: minmax(170px, 3fr) minmax(0, 2fr) fit-content(150px) fit-content(96px) minmax(126px, 152px) 16px;
   align-items: center;
   gap: 7px;
   padding: 0;
@@ -1177,9 +1177,13 @@
 }
 
 .taskLabels {
-  max-width: 220px;
   justify-content: flex-end;
-  justify-self: end;
+}
+
+/* Measured rows size pills from pretext text widths, so flex must never shrink or clip them. */
+.taskLabels[data-flow='measured'] .taskLabel {
+  flex: none;
+  max-width: none;
 }
 
 .taskLabel,

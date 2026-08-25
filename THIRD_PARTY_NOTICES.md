@@ -5,3 +5,5 @@ The Factory interface takes product-design inspiration from Linear-style issue l
 The browser presentation uses DeepSeek Harness semantic design tokens and its canonical Lucide icon exports.
 
 Factory uses [Croner](https://github.com/Hexagon/croner) 9.1.0 under the MIT License for recurring cron validation and next-occurrence calculation.
+
+Factory uses [Pretext](https://github.com/chenglou/pretext) 0.0.8 under the MIT License for canvas-grounded text measurement that sizes and truncates task label pills without DOM reflow.
