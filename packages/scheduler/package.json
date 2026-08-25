@@ -1,6 +1,6 @@
 {
   "name": "dsh-factory-scheduler",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "description": "Leader-elected Factory scheduler and DSH Agent executor",
   "type": "module",
   "license": "MIT",

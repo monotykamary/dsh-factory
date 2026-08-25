@@ -1,6 +1,6 @@
 {
   "name": "dsh-factory-store-sqlite",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "description": "Transactional SQLite Factory store provider",
   "type": "module",
   "license": "MIT",
