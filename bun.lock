@@ -30,7 +30,7 @@
     },
     "packages/client-ui": {
       "name": "dsh-factory-client-ui",
-      "version": "0.1.8",
+      "version": "0.1.9",
       "dependencies": {
         "@chenglou/pretext": "^0.0.8",
         "dsh-factory-domain": "workspace:^",
@@ -78,7 +78,7 @@
     },
     "packages/domain": {
       "name": "dsh-factory-domain",
-      "version": "0.1.8",
+      "version": "0.1.9",
       "dependencies": {
         "@monotykamary/schemastery": "^3.17.1",
         "croner": "^9.1.0",
@@ -110,7 +110,7 @@
     },
     "packages/protocol": {
       "name": "dsh-factory-protocol",
-      "version": "0.1.8",
+      "version": "0.1.9",
       "dependencies": {
         "zod": "^4.3.6",
       },
@@ -123,7 +123,7 @@
     },
     "packages/scheduler": {
       "name": "dsh-factory-scheduler",
-      "version": "0.1.8",
+      "version": "0.1.9",
       "dependencies": {
         "@monotykamary/schemastery": "^3.17.1",
         "dsh-factory-domain": "workspace:^",
@@ -167,7 +167,7 @@
     },
     "packages/store": {
       "name": "dsh-factory-store",
-      "version": "0.1.8",
+      "version": "0.1.9",
       "dependencies": {
         "dsh-factory-protocol": "workspace:^",
       },
@@ -181,7 +181,7 @@
     },
     "packages/store-sqlite": {
       "name": "dsh-factory-store-sqlite",
-      "version": "0.1.8",
+      "version": "0.1.9",
       "dependencies": {
         "dsh-factory-protocol": "workspace:^",
         "dsh-factory-store": "workspace:^",
@@ -198,7 +198,7 @@
     },
     "packages/tools": {
       "name": "dsh-factory-tools",
-      "version": "0.1.8",
+      "version": "0.1.9",
       "dependencies": {
         "dsh-factory-domain": "workspace:^",
         "dsh-factory-protocol": "workspace:^",
