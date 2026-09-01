@@ -77,7 +77,7 @@ function main() {
     mkdirSync(packed, { recursive: true })
     mkdirSync(consumer, { recursive: true })
     for (const directory of packageDirectories) {
-      run('pnpm', ['--dir', resolve(root, directory), 'pack', '--pack-destination', packed])
+      run('bun', ['pm', 'pack', '--destination', packed], { cwd: resolve(root, directory) })
     }
 
     const dependencies = {}

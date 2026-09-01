@@ -39,10 +39,10 @@ async function main() {
     const directory = part === '' ? ROOT : resolve(ROOT, 'packages', part)
     const manifest = JSON.parse(await readFile(resolve(directory, 'package.json'), 'utf8'))
     if (typeof manifest.name !== 'string' || manifest.name === '') throw new Error(`${directory}/package.json has no package name`)
-    return `link:${directory}`
+    return `file:${directory}`
   }))
-  await run(['dlx', DSH_PACKAGE, 'plugin', '--profile', options.profile, 'add', ...packages])
-  const config = await run(['dlx', DSH_PACKAGE, '--profile', options.profile, '--dump-config'], true)
+  await run(['x', DSH_PACKAGE, 'plugin', '--profile', options.profile, 'add', ...packages])
+  const config = await run(['x', DSH_PACKAGE, '--profile', options.profile, '--dump-config'], true)
   for (const name of EXPECTED_ROWS) {
     if (!config.includes(`name: '${name}'`) && !config.includes(`name: ${name}`) && !config.includes(`name: "${name}"`)) {
       throw new Error(`profile ${JSON.stringify(options.profile)} is missing Factory row ${name}`)
@@ -81,7 +81,7 @@ async function verifyArtifacts() {
 }
 
 function run(args, capture = false) {
-  const invocation = pnpmInvocation(args)
+  const invocation = { command: 'bun', args }
   return new Promise((resolvePromise, rejectPromise) => {
     const child = spawn(invocation.command, invocation.args, { cwd: ROOT, env: process.env, stdio: capture ? ['ignore', 'pipe', 'inherit'] : 'inherit' })
     let stdout = ''
@@ -89,20 +89,12 @@ function run(args, capture = false) {
     child.once('error', rejectPromise)
     child.once('close', (code, signal) => {
       if (code === 0) resolvePromise(stdout)
-      else rejectPromise(new Error(`pnpm ${args.join(' ')} failed${signal === null ? ` with exit code ${code}` : ` from signal ${signal}`}`))
+      else rejectPromise(new Error(`bun ${args.join(' ')} failed${signal === null ? ` with exit code ${code}` : ` from signal ${signal}`}`))
     })
   })
 }
 
-function pnpmInvocation(args) {
-  if (process.platform !== 'win32') return { command: 'pnpm', args }
-  const entry = process.env.npm_execpath
-  if (entry === undefined || !/\.[cm]?js$/iu.test(entry)) {
-    throw new Error('on Windows, invoke this installer through pnpm run so npm_execpath identifies pnpm without a shell')
-  }
-  return { command: process.execPath, args: [entry, ...args] }
-}
 
 function help() {
-  console.log(`Usage: pnpm run install:local -- [--profile web] [--skip-build]\n\nBuild and link this checkout into one DSH profile without starting it.`)
+  console.log(`Usage: bun run install:local -- [--profile web] [--skip-build]\n\nBuild and link this checkout into one DSH profile without starting it.`)
 }

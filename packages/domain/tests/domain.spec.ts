@@ -292,12 +292,12 @@ describe('FactoryDomain', () => {
       projectPath,
       settings: {
         model: 'provider:workspace-model', titleModel: 'provider:title-model', autoTitle: false,
-        titlePrompt: '', descriptionPrompt: '', lane: { mode: 'current' }, setupCommand: 'pnpm install',
+        titlePrompt: '', descriptionPrompt: '', lane: { mode: 'current' }, setupCommand: 'bun install',
       },
     })
     expect(configured.document.projects[0]?.settings).toEqual({
       model: 'provider:workspace-model', titleModel: 'provider:title-model', autoTitle: false,
-      lane: { mode: 'current' }, setupCommand: 'pnpm install',
+      lane: { mode: 'current' }, setupCommand: 'bun install',
     })
     const created = await domain.createTask({ projectPath, title: 'Inherited task', description: 'Explicit', prompt: 'work', expectedRevision: configured.revision })
     expect(created.document.tasks[0]).toMatchObject({ lane: { mode: 'current' } })

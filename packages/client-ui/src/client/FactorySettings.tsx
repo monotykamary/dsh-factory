@@ -146,7 +146,7 @@ export function FactorySettings({ snapshot, workspaces, choices, modelError, ini
           <label><span>Default checkout</span><FactorySelectMenu value={lane} items={[{ id: 'isolated', label: 'Isolated worktree', icon: <GitBranch size={13} /> }, { id: 'current', label: 'Current checkout', icon: <GitBranch size={13} /> }]} placeholder="Checkout" ariaLabel="Default checkout" onSelect={value => { setLane(value as 'current' | 'isolated') }} /></label>
           <label><span>Base ref</span><input value={baseRef} disabled={lane !== 'isolated'} onChange={event => { setBaseRef(event.target.value) }} placeholder="Workspace default branch" /></label>
         </div>
-        <label><span>Setup script</span><textarea value={setupCommand} onChange={event => { setSetupCommand(event.target.value) }} placeholder="pnpm install" /></label>
+        <label><span>Setup script</span><textarea value={setupCommand} onChange={event => { setSetupCommand(event.target.value) }} placeholder="bun install" /></label>
         <p className={css.settingsHint}>The setup script runs as the first command in each newly allocated Factory checkout.</p>
       </section>
       <section className={css.settingsSection}>

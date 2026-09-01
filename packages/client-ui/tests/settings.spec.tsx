@@ -61,7 +61,7 @@ describe('Factory settings under polling refreshes', () => {
   it('keeps unsaved settings edits across polling refreshes', () => {
     const view = render(element(snapshot(1)))
 
-    fireEvent.change(screen.getByPlaceholderText('pnpm install'), { target: { value: './scripts/setup.sh' } })
+    fireEvent.change(screen.getByPlaceholderText('bun install'), { target: { value: './scripts/setup.sh' } })
     fireEvent.change(screen.getByPlaceholderText('Workspace default branch'), { target: { value: 'release/2.x' } })
     fireEvent.click(screen.getByRole('checkbox', { name: /Generate titles and descriptions/ }))
     fireEvent.click(screen.getByRole('button', { name: 'Workspace task model' }))
@@ -71,7 +71,7 @@ describe('Factory settings under polling refreshes', () => {
 
     view.rerender(element(poll(snapshot(1))))
 
-    expect((screen.getByPlaceholderText('pnpm install') as HTMLTextAreaElement).value).toBe('./scripts/setup.sh')
+    expect((screen.getByPlaceholderText('bun install') as HTMLTextAreaElement).value).toBe('./scripts/setup.sh')
     expect((screen.getByPlaceholderText('Workspace default branch') as HTMLInputElement).value).toBe('release/2.x')
     expect((screen.getByRole('checkbox', { name: /Generate titles and descriptions/ }) as HTMLInputElement).checked).toBe(false)
     expect(screen.getByRole('button', { name: 'Workspace task model' }).textContent).toContain('Critic · Mock')
@@ -94,11 +94,11 @@ describe('Factory settings under polling refreshes', () => {
 
     view.rerender(element(poll(snapshot(2))))
     expect(screen.getByRole('button', { name: 'Workspace task model' }).textContent).toContain('Writer · Mock')
-    expect((screen.getByPlaceholderText('pnpm install') as HTMLTextAreaElement).value).toBe('')
+    expect((screen.getByPlaceholderText('bun install') as HTMLTextAreaElement).value).toBe('')
 
     view.rerender(element(snapshot(3, { one: { model: 'mock:critic', setupCommand: 'make setup' } })))
     expect(screen.getByRole('button', { name: 'Workspace task model' }).textContent).toContain('Critic · Mock')
-    expect((screen.getByPlaceholderText('pnpm install') as HTMLTextAreaElement).value).toBe('make setup')
+    expect((screen.getByPlaceholderText('bun install') as HTMLTextAreaElement).value).toBe('make setup')
   })
 
   it('applies a targeted workspace once and keeps later choices across polling refreshes', () => {

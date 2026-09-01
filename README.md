@@ -95,9 +95,11 @@ Restart the selected profile after installation. Factory appears as an additive 
 ```bash
 git clone https://github.com/monotykamary/dsh-factory.git
 cd dsh-factory
-pnpm install
-pnpm run check
-pnpm run install:local -- --profile web --skip-build
+bun install
+# Optional when co-developing against a sibling ../deepseek-harness checkout
+bun run link:harness
+bun run check
+bun run install:local -- --profile web --skip-build
 ```
 
 The installer links all eight workspace packages, validates the composed Factory rows, and never starts or restarts DSH.
@@ -118,13 +120,15 @@ Pasted images reuse the DSH attachment gallery and fullscreen lightbox. Task det
 
 ## Development
 
-Requirements: Node.js `^22.19.0 || >=24` and pnpm 11.
+Requirements: Node.js `^22.19.0 || >=24` and Bun 1.4+.
 
 ```bash
-pnpm install
-pnpm run check
+bun install
+# Optional when co-developing against a sibling ../deepseek-harness checkout
+bun run link:harness
+bun run check
 ```
 
-`pnpm run check` also packs all eight packages and installs them with standard npm, without legacy peer mode. Browser-facing changes additionally run `pnpm run test:e2e` against an assembled Factory Web profile. Local captures belong under `.artifacts/screenshots/` and are excluded from Git and npm.
+`bun run check` also packs all eight packages and installs them with standard npm, without legacy peer mode. Browser-facing changes additionally run `bun run test:e2e` against an assembled Factory Web profile. Local captures belong under `.artifacts/screenshots/` and are excluded from Git and npm.
 
 See [`docs/architecture.md`](docs/architecture.md) for durable authority, intake, metadata, scheduling, execution, Triage, cleanup, and browser-state ownership.

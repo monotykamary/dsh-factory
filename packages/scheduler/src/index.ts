@@ -243,7 +243,9 @@ class FactoryScheduler {
       agentOptions: { provider: selection.provider, model: selection.model },
       setup: async (agentCtx) => {
         await this.ctx.agentPresets.mount(agentCtx, presetId)
-        installModelSelection(agentCtx, selectionRef)
+        const agent = agentCtx.agent
+        if (agent === undefined) throw new Error('Factory Agent setup has no scoped Agent')
+        installModelSelection(agentCtx, agent, selectionRef)
         await agentCtx.plugin(AskUserQuestionTool)
         channel = installFactoryCompletionTool(agentCtx)
       },

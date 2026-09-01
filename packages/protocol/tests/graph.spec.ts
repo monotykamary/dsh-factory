@@ -91,7 +91,7 @@ describe('Factory graph', () => {
       settings: {
         model: 'mock:task', titleModel: 'mock:title', autoTitle: true,
         titlePrompt: 'Name the concrete outcome.', descriptionPrompt: 'Summarize constraints.',
-        lane: { mode: 'isolated', baseRef: 'origin/main' }, setupCommand: 'pnpm install',
+        lane: { mode: 'isolated', baseRef: 'origin/main' }, setupCommand: 'bun install',
       },
       createdAt: now, updatedAt: now,
     })
@@ -105,7 +105,7 @@ describe('Factory graph', () => {
 
     const obsolete = structuredClone(document) as unknown as { projects: Array<Record<string, unknown>> }
     delete obsolete.projects[0]?.settings
-    obsolete.projects[0]!.setupCommand = 'pnpm install'
+    obsolete.projects[0]!.setupCommand = 'bun install'
     expect(() => parseFactoryDocument(obsolete)).toThrow()
     const incompleteReceipt = structuredClone(document)
     incompleteReceipt.metadataGenerations[0]!.route.provider = ''

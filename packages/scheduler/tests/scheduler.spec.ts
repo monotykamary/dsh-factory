@@ -209,7 +209,7 @@ describe('FactoryScheduler', () => {
     context.on('agent/created', ({ agent }) => { capturedSession = agent.session })
 
     await domain.updateProject({
-      projectPath, settings: { model: 'mock:workspace-model', titleModel: 'mock:title-model', autoTitle: false, lane: { mode: 'current' }, setupCommand: 'pnpm install' },
+      projectPath, settings: { model: 'mock:workspace-model', titleModel: 'mock:title-model', autoTitle: false, lane: { mode: 'current' }, setupCommand: 'bun install' },
     })
     const created = await domain.createTask({ projectPath, title: 'Run through DSH', prompt: 'Make the change and verify it.', automation: { trigger: { kind: 'recurring', schedule: { kind: 'cron', expression: '* * * * *' } }, enabled: true } })
     const nextRunAt = created.document.tasks[0]?.automation?.nextRunAt
@@ -223,7 +223,7 @@ describe('FactoryScheduler', () => {
     expect(stored.document.runs[0]?.reviewedAt).toBeUndefined()
     expect(adapter.requests).toHaveLength(2)
     expect(adapter.requests.every(request => request.provider === 'mock' && request.model === 'workspace-model')).toBe(true)
-    expect(shell.specs).toEqual([expect.objectContaining({ command: 'pnpm install', workdir: projectPath })])
+    expect(shell.specs).toEqual([expect.objectContaining({ command: 'bun install', workdir: projectPath })])
     const assignment = capturedSession?.events.find(event => event.type === 'user/message' && (event.data as { source?: { kind?: string } }).source?.kind === 'factory-task')
     expect(assignment).toBeDefined()
     expect(JSON.stringify(assignment?.data)).toContain('## Dependency handoff')
@@ -441,7 +441,7 @@ describe('FactoryScheduler', () => {
 
     await domain.updateProject({
       projectPath,
-      settings: { model: 'mock:workspace-model', titleModel: 'mock:title-model', autoTitle: false, lane: { mode: 'current' }, setupCommand: 'pnpm install' },
+      settings: { model: 'mock:workspace-model', titleModel: 'mock:title-model', autoTitle: false, lane: { mode: 'current' }, setupCommand: 'bun install' },
     })
     await domain.createTask({
       projectPath, title: 'Flaky setup', prompt: 'Recover after a transient setup failure.', enqueue: true,

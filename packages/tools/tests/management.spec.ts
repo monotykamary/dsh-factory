@@ -179,7 +179,7 @@ describe('Factory management tools', () => {
     const settings = await call(context, 'factory_update_project', {
       model: 'mock:workspace', title_model: 'mock:title', auto_title: true,
       title_prompt: 'Name the outcome.', description_prompt: 'Describe verification.',
-      lane: 'isolated', base_ref: 'origin/main', setup_command: 'pnpm install', expected_revision: 7,
+      lane: 'isolated', base_ref: 'origin/main', setup_command: 'bun install', expected_revision: 7,
     })
     expect(settings).toMatchObject({ isError: false })
     expect(factory.updateProjectSettings).toHaveBeenCalledWith({
@@ -187,7 +187,7 @@ describe('Factory management tools', () => {
       settings: {
         model: 'mock:workspace', titleModel: 'mock:title', autoTitle: true,
         titlePrompt: 'Name the outcome.', descriptionPrompt: 'Describe verification.',
-        lane: { mode: 'isolated', baseRef: 'origin/main' }, setupCommand: 'pnpm install',
+        lane: { mode: 'isolated', baseRef: 'origin/main' }, setupCommand: 'bun install',
       },
       expectedRevision: 7,
     })

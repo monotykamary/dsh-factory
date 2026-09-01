@@ -23,4 +23,4 @@ A checkout is one serialized writer lane. Never force-remove a worktree, delete 
 
 ## Verification
 
-Run `pnpm run check`. Browser screenshots additionally run `pnpm run test:e2e` after building the client bundle.
+Run `bun run check`. Browser screenshots additionally run `bun run test:e2e` after building the client bundle.

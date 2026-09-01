@@ -7,7 +7,7 @@
   "engines": {
     "node": "^22.19.0 || >=24.0.0"
   },
-  "packageManager": "pnpm@11.20.0",
+  "packageManager": "bun@1.4.0",
   "files": [
     "cordis.patch.yml",
     "README.md",
@@ -35,13 +35,14 @@
   },
   "scripts": {
     "clean": "node scripts/clean.mjs",
-    "typecheck": "pnpm run build && tsc -b tsconfig.host.json tsconfig.client.json --pretty false && tsc -p tsconfig.e2e.json --pretty false",
-    "build": "pnpm run clean && pnpm --filter dsh-factory-protocol run build && pnpm --filter dsh-factory-store run build && pnpm --filter dsh-factory-store-sqlite run build && pnpm --filter dsh-factory-tools run build && pnpm --filter dsh-factory-domain run build && pnpm --filter dsh-factory-scheduler run build && pnpm --filter dsh-factory-client-ui run build",
+    "typecheck": "bun run build && tsc -b tsconfig.host.json tsconfig.client.json --pretty false && tsc -p tsconfig.e2e.json --pretty false",
+    "build": "bun run clean && bun run --filter dsh-factory-protocol build && bun run --filter dsh-factory-store build && bun run --filter dsh-factory-store-sqlite build && bun run --filter dsh-factory-tools build && bun run --filter dsh-factory-domain build && bun run --filter dsh-factory-scheduler build && bun run --filter dsh-factory-client-ui build",
     "test": "vitest run",
     "test:e2e": "playwright test",
     "verify:packed-install": "node scripts/verify-packed-install.mjs",
     "install:local": "node scripts/install-local.mjs",
-    "check": "pnpm run typecheck && pnpm run test && pnpm run verify:packed-install"
+    "check": "bun run typecheck && bun run test && bun run verify:packed-install",
+    "link:harness": "node scripts/link-harness.mjs"
   },
   "devDependencies": {
     "@monotykamary/dsh-typert-generator": "^0.1.0-rc.11",
@@ -60,5 +61,11 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/monotykamary/dsh-factory.git"
-  }
+  },
+  "workspaces": [
+    "packages/*"
+  ],
+  "trustedDependencies": [
+    "esbuild"
+  ]
 }
