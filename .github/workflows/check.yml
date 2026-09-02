@@ -12,7 +12,7 @@ env:
   # Factory's optional Bun link workflow preserves one Cordis and DSH module
   # identity against a sibling Harness checkout. Keep this pin on a commit that
   # exposes the external orchestration and deliverables APIs Factory uses.
-  DSH_HARNESS_REF: 6fbdc58a1ff33c01d3f24328eeb650c76645c87a
+  DSH_HARNESS_REF: 2a7a6ba7a992873e8ce8067c40505637f8731e89
 
 jobs:
   check:
